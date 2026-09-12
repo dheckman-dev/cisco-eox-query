@@ -42,6 +42,7 @@ class SupportClient:
             self._fetch_token()
 
     def _fetch_token(self) -> None:
+        headers = {"application": "x-www-form-urlencoded"}
         response = self._client.post(
             self.token_url,
             data={
@@ -49,7 +50,10 @@ class SupportClient:
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
             },
-            headers={"Accept": "application/json"},
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
         )
         response.raise_for_status()
         payload = response.json()
