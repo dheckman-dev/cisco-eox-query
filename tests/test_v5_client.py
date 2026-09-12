@@ -9,7 +9,12 @@ from cisco_eox_query.v5.models import EOXAPIError
 
 
 def _client(handler) -> EOXClient:
-    return EOXClient(access_token="dummy", transport=httpx.MockTransport(handler))
+    return EOXClient(
+        access_token="dummy",
+        transport=httpx.MockTransport(handler),
+        retry_delay=0.0,
+        min_request_interval=0.0,
+    )
 
 
 def _json_response(payload: dict | None = None) -> httpx.Response:
@@ -26,7 +31,13 @@ def test_token_flow_uses_client_credentials():
             return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})
         return _json_response()
 
-    client = EOXClient(client_id="cid", client_secret="csecret", transport=httpx.MockTransport(handler))
+    client = EOXClient(
+        client_id="cid",
+        client_secret="csecret",
+        transport=httpx.MockTransport(handler),
+        retry_delay=0.0,
+        min_request_interval=0.0,
+    )
     client.search_by_product_ids("WIC-1T=")
     assert any(r.method == "POST" for r in calls)
     assert [r.headers["authorization"] for r in calls if r.method == "GET"] == ["Bearer tok"]

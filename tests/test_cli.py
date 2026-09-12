@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from cisco_eox_query import cli
+from cisco_eox_query import RateLimitError, cli
 from cisco_eox_query.v5.models import EOXResponse
 
 
@@ -69,6 +69,22 @@ def test_main_error_payload_fails(monkeypatch, caplog):
     monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(payload))
     assert cli.main(["--access-token", "t", "pid", "WIC-1T="]) == 1
     assert "Access denied" in caplog.text
+
+
+def test_main_rate_limit_exits_gracefully(monkeypatch, caplog):
+    class _Limited:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return None
+
+        def search_by_product_ids(self, *args, **kwargs):
+            raise RateLimitError("exceeded the Cisco API rate limit after 3 retries")
+
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _Limited())
+    assert cli.main(["--access-token", "t", "pid", "WIC-1T="]) == cli.EXIT_RATE_LIMIT
+    assert "rate limit" in caplog.text.lower()
 
 
 def test_log_format_constants():

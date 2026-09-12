@@ -13,10 +13,12 @@ from typing import Sequence
 
 import httpx
 
-from cisco_eox_query import EOXAPIError, EOXClient, EOXRecord, __version__
+from cisco_eox_query import EOXAPIError, EOXClient, EOXRecord, RateLimitError, RetryError, __version__
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+EXIT_RATE_LIMIT = 2
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +96,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             logger.info("found %d EOX record(s)", len(records))
         else:
             logger.warning("No EOX records found.")
-    except (ValueError, httpx.HTTPError, EOXAPIError) as exc:
+    except RateLimitError as exc:
+        logger.error("%s", exc)
+        return EXIT_RATE_LIMIT
+    except (ValueError, httpx.HTTPError, EOXAPIError, RetryError) as exc:
         logger.error("%s", exc)
         return 1
     return 0

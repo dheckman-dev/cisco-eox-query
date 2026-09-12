@@ -81,6 +81,31 @@ eox-query -vv --client-id ... --client-secret ... pid WIC-1T=
 
 Library users get the same structured loggers (`cisco_eox_query._base`, `cisco_eox_query.v5.client`, ...) without any handler configuration.
 
+## Rate limiting and retries
+
+The EOX API is limited to 5 requests/second and 5000 requests/day. The client
+handles this automatically:
+
+- Requests are throttled to stay under the per-second limit (default 0.25s
+  between requests, configurable via `min_request_interval`).
+- HTTP 429/408/425/5xx responses and transport errors are retried up to
+  `max_retries` times (default 3) with `retry_delay` seconds between attempts
+  (default 5s), honoring the server's `Retry-After` header when present.
+- After retries are exhausted on a 429, a `RateLimitError` is raised; the CLI
+  prints a message about hitting the daily limit and exits with code 2.
+- Non-retryable errors (e.g. HTTP 403) are raised immediately.
+
+```python
+from cisco_eox_query import EOXClient, RateLimitError
+
+with EOXClient(client_id="...", client_secret="...", max_retries=5, retry_delay=2.0) as client:
+    try:
+        for record in client.iter_product_ids(["WIC-1T="]):
+            print(record.eol_product_id)
+    except RateLimitError as exc:
+        print(f"Hit the daily request limit: {exc}")
+```
+
 ## Development
 
 ```bash
