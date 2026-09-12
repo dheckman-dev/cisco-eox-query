@@ -211,3 +211,75 @@ def test_collect_runaway_pagination_raises():
     with pytest.raises(PaginationError):
         cli._collect(request_fn)
     assert len(calls) == cli.DEFAULT_MAX_PAGES
+
+
+def test_main_examples_flag(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--examples"])
+    assert exc_info.value.code == 0
+    out = capsys.readouterr().out
+    assert "Examples" in out
+    assert "pid" in out
+    assert "serial" in out
+
+
+def test_main_pid_examples_flag(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["pid", "--examples"])
+    assert exc_info.value.code == 0
+    out = capsys.readouterr().out
+    assert "Examples for 'pid'" in out
+    assert "WS-C2960X-48TS-L" in out
+
+
+def test_main_serial_examples_flag(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["serial", "--examples"])
+    assert exc_info.value.code == 0
+    assert "JAE11108ESH" in capsys.readouterr().out
+
+
+def test_main_software_examples_flag(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["software", "--examples"])
+    assert exc_info.value.code == 0
+    assert "12.4(15)T,IOS" in capsys.readouterr().out
+
+
+def test_main_dates_examples_flag(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["dates", "--examples"])
+    assert exc_info.value.code == 0
+    assert "2011-01-01" in capsys.readouterr().out
+
+
+def test_help_contains_examples(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.build_parser().parse_args(["--help"])
+    assert exc_info.value.code == 0
+    out = capsys.readouterr().out
+    assert "examples:" in out
+    assert "eox-query --client-id" in out
+
+
+def test_subcommand_help_contains_examples(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.build_parser().parse_args(["pid", "--help"])
+    assert exc_info.value.code == 0
+    out = capsys.readouterr().out
+    assert "examples:" in out
+    assert "WS-C2960X-48TS-L" in out
+
+
+def test_format_examples():
+    text = cli.format_examples(
+        [("Query a product", "eox-query pid WIC-1T=")], title="Examples"
+    )
+    assert text.startswith("Examples\n")
+    assert "Query a product:" in text
+    assert "  eox-query pid WIC-1T=" in text
+
+
+def test_format_epilog():
+    text = cli.format_epilog([("Query a product", "eox-query pid WIC-1T=")])
+    assert text == "examples:\n  eox-query pid WIC-1T="

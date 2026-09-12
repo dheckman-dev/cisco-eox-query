@@ -77,6 +77,10 @@ eox-query --client-id ... --client-secret ... software 12.4\(15\)T,IOS
 eox-query --client-id ... --client-secret ... dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE
 ```
 
+Run `eox-query --examples` for annotated usage examples, or
+`eox-query <command> --examples` (e.g. `eox-query pid --examples`) for
+command-specific examples. Examples are also embedded in `--help` output.
+
 Logs go to stderr with the format `YYYY-MM-DD HH:MM:SS - SEVERITY - module - message`; queried records print to stdout so they can be piped. Diagnostics are silent by default and increase with `-v` (info) / `-vv` (debug).
 
 ```bash

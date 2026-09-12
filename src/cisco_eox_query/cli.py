@@ -23,6 +23,12 @@ from cisco_eox_query import (
     __version__,
 )
 from cisco_eox_query.constants import DEFAULT_MAX_PAGES
+from cisco_eox_query.examples import (
+    COMMAND_EXAMPLES,
+    ROOT_EXAMPLES,
+    format_epilog,
+    format_examples,
+)
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
@@ -32,12 +38,43 @@ EXIT_RATE_LIMIT = 2
 logger = logging.getLogger(__name__)
 
 
+class _ExamplesAction(argparse.Action):
+    """Print usage examples and exit (mirrors the ``--version`` action)."""
+
+    def __init__(
+        self,
+        option_strings,
+        dest,
+        nargs=0,
+        examples=None,
+        title=None,
+        **kwargs,
+    ):
+        super().__init__(option_strings, dest, nargs=nargs, **kwargs)
+        self.examples = examples or []
+        self.title = title
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(format_examples(self.examples, title=self.title))
+        parser.exit()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="eox-query",
         description="Query the Cisco End-of-Life (EOX) API.",
+        epilog=format_epilog(ROOT_EXAMPLES)
+        + "\n\nRun 'eox-query --examples' for more examples.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--examples",
+        action=_ExamplesAction,
+        examples=ROOT_EXAMPLES,
+        title="Examples",
+        help="show usage examples and exit",
+    )
     parser.add_argument(
         "--client-id",
         default=os.environ.get("EOX_CLIENT_ID"),
@@ -64,16 +101,72 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    pid = subparsers.add_parser("pid", help="search by product ID(s)")
+    pid = subparsers.add_parser(
+        "pid",
+        help="search by product ID(s)",
+        description="Search the Cisco EOX API by product ID(s).",
+        epilog=format_epilog(COMMAND_EXAMPLES["pid"])
+        + "\n\nRun 'eox-query pid --examples' for more examples.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    pid.add_argument(
+        "--examples",
+        action=_ExamplesAction,
+        examples=COMMAND_EXAMPLES["pid"],
+        title="Examples for 'pid'",
+        help="show usage examples and exit",
+    )
     pid.add_argument("product_ids", nargs="+", help="one or more PIDs (wildcards allowed)")
 
-    serial = subparsers.add_parser("serial", help="search by serial number(s)")
+    serial = subparsers.add_parser(
+        "serial",
+        help="search by serial number(s)",
+        description="Search the Cisco EOX API by serial number(s).",
+        epilog=format_epilog(COMMAND_EXAMPLES["serial"])
+        + "\n\nRun 'eox-query serial --examples' for more examples.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    serial.add_argument(
+        "--examples",
+        action=_ExamplesAction,
+        examples=COMMAND_EXAMPLES["serial"],
+        title="Examples for 'serial'",
+        help="show usage examples and exit",
+    )
     serial.add_argument("serial_numbers", nargs="+", help="one or more serial numbers")
 
-    software = subparsers.add_parser("software", help="search by software release string(s)")
+    software = subparsers.add_parser(
+        "software",
+        help="search by software release string(s)",
+        description="Search the Cisco EOX API by software release string(s).",
+        epilog=format_epilog(COMMAND_EXAMPLES["software"])
+        + "\n\nRun 'eox-query software --examples' for more examples.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    software.add_argument(
+        "--examples",
+        action=_ExamplesAction,
+        examples=COMMAND_EXAMPLES["software"],
+        title="Examples for 'software'",
+        help="show usage examples and exit",
+    )
     software.add_argument("releases", nargs="+", help="SWversion[,OSType] tuples, e.g. 12.4(15)T,IOS")
 
-    dates = subparsers.add_parser("dates", help="search by date range")
+    dates = subparsers.add_parser(
+        "dates",
+        help="search by date range",
+        description="Search the Cisco EOX API by date range.",
+        epilog=format_epilog(COMMAND_EXAMPLES["dates"])
+        + "\n\nRun 'eox-query dates --examples' for more examples.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    dates.add_argument(
+        "--examples",
+        action=_ExamplesAction,
+        examples=COMMAND_EXAMPLES["dates"],
+        title="Examples for 'dates'",
+        help="show usage examples and exit",
+    )
     dates.add_argument("start", help="start date YYYY-MM-DD")
     dates.add_argument("end", help="end date YYYY-MM-DD")
     dates.add_argument("--attribs", help="comma-separated eoxAttrib values")
