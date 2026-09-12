@@ -200,6 +200,50 @@ def test_iter_dates_error_on_second_page_raises():
         list(client.iter_dates("2011-01-01", "2011-01-31"))
 
 
+def test_iter_max_pages_zero_rejected():
+    client = _client(lambda request: _json_response())
+    with pytest.raises(ValueError):
+        list(client.iter_product_ids("WIC-1T=", max_pages=0))
+
+
+def test_iter_serial_numbers_yields_records():
+    payload = {
+        "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 1, "TotalRecords": 1, "PageRecords": 1},
+        "EOXRecord": [{"EOLProductID": "S1"}],
+    }
+
+    def handler(request):
+        return httpx.Response(200, json=payload)
+
+    client = _client(handler)
+    assert [r.eol_product_id for r in client.iter_serial_numbers(["JAE11108ESH"])] == ["S1"]
+
+
+def test_iter_software_releases_yields_records():
+    payload = {
+        "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 1, "TotalRecords": 1, "PageRecords": 1},
+        "EOXRecord": [{"EOLProductID": "SW1"}],
+    }
+
+    def handler(request):
+        return httpx.Response(200, json=payload)
+
+    client = _client(handler)
+    assert [r.eol_product_id for r in client.iter_software_releases(("12.4(15)T", "IOS"))] == ["SW1"]
+
+
+def test_string_release_format_succeeds():
+    captured = {}
+
+    def handler(request):
+        captured["url"] = str(request.url)
+        return _json_response()
+
+    client = _client(handler)
+    client.search_by_software_releases("12.4(15)T,IOS")
+    assert "input1=12.4%2815%29T%2CIOS" in captured["url"]
+
+
 def test_iter_missing_last_index_returns_page_1():
     payload = {
         "PaginationResponseRecord": {"PageIndex": 1, "TotalRecords": 1, "PageRecords": 1},

@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from cisco_eox_query import RateLimitError, RetryError
+from cisco_eox_query._base import _retry_after_seconds
 from cisco_eox_query.v5.client import EOXClient
 
 
@@ -90,6 +91,13 @@ def test_retries_exhausted_on_503_raises_retry_error():
     with pytest.raises(RetryError):
         client.search_by_product_ids("WIC-1T=")
     assert len(calls) == 2
+
+
+def test_retry_after_naive_date_assumed_utc():
+    # HTTP-date without a timezone suffix parses to a naive datetime; the
+    # client assumes UTC. A past date clamps the delay to zero.
+    response = httpx.Response(429, headers={"Retry-After": "Wed, 21 Oct 2015 07:28:00"})
+    assert _retry_after_seconds(response, 5.0) == 0.0
 
 
 def test_retry_after_http_date_honored(monkeypatch):
@@ -382,6 +390,31 @@ def test_token_response_missing_access_token_raises():
     with pytest.raises(ValueError) as exc_info:
         _credential_client(handler)
     assert "no access_token" in str(exc_info.value)
+
+
+def test_token_endpoint_error_status_raises():
+    def handler(request):
+        return httpx.Response(400, json={"error": "invalid_client"})
+
+    with pytest.raises(httpx.HTTPStatusError):
+        _credential_client(handler)
+
+
+def test_ensure_token_fetches_when_missing():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if request.method == "POST":
+            return _token_response("tok")
+        return httpx.Response(200, json=_payload())
+
+    client = _credential_client(handler)
+    assert sum(r.method == "POST" for r in calls) == 1
+    client._access_token = None
+    response = client.search_by_product_ids("WIC-1T=")
+    assert response.records == []
+    assert sum(r.method == "POST" for r in calls) == 2
 
 
 def test_token_response_invalid_json_raises():

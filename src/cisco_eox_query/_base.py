@@ -229,7 +229,6 @@ class SupportClient:
                 delay,
             )
             time.sleep(delay)
-        raise AssertionError("unreachable")
 
     def _get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         self._ensure_token()

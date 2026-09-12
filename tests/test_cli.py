@@ -132,6 +132,28 @@ def test_main_rate_limit_exits_gracefully(monkeypatch, caplog):
     assert "rate limit" in caplog.text.lower()
 
 
+def test_main_with_client_credentials(monkeypatch, capsys, eox_response_payload):
+    captured = {}
+
+    def fake_client(**kwargs):
+        captured.update(kwargs)
+        return _StubClient(eox_response_payload)
+
+    monkeypatch.setattr(cli, "EOXClient", fake_client)
+    assert cli.main(["--client-id", "cid", "--client-secret", "sec", "pid", "WIC-1T="]) == 0
+    assert captured["client_id"] == "cid"
+    assert captured["client_secret"] == "sec"
+    assert "WIC-1T=" in capsys.readouterr().out
+
+
+def test_dispatch_unhandled_command_raises():
+    import argparse
+
+    args = argparse.Namespace(command="bogus")
+    with pytest.raises(AssertionError):
+        cli._dispatch(None, args)
+
+
 def test_log_format_constants():
     assert cli.LOG_FORMAT == "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
     assert cli.LOG_DATEFMT == "%Y-%m-%d %H:%M:%S"
