@@ -203,8 +203,10 @@ def test_non_retryable_4xx_not_retried():
     assert len(calls) == 1
 
 
-def test_throttle_spaces_requests():
-    started = time.monotonic()
+def test_throttle_spaces_requests(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr("cisco_eox_query._base.time.sleep", sleeps.append)
+    monkeypatch.setattr("cisco_eox_query._base.time.monotonic", lambda: 0.0)
     calls = []
 
     def handler(request):
@@ -214,7 +216,35 @@ def test_throttle_spaces_requests():
     client = _client(handler, min_request_interval=0.2)
     client.search_by_product_ids("A")
     client.search_by_product_ids("B")
-    assert time.monotonic() - started >= 0.15
+    assert sleeps == [0.2]
+    assert len(calls) == 2
+
+
+def test_close_closes_http_client():
+    client = _client(lambda request: httpx.Response(200, json=_payload()))
+    assert not client._client.is_closed
+    client.close()
+    assert client._client.is_closed
+
+
+def test_context_manager_closes_client():
+    with _client(lambda request: httpx.Response(200, json=_payload())) as client:
+        assert not client._client.is_closed
+    assert client._client.is_closed
+
+
+def test_missing_credentials_rejected():
+    with pytest.raises(ValueError):
+        EOXClient()
+
+
+def test_negative_max_retries_rejected():
+    with pytest.raises(ValueError):
+        EOXClient(
+            access_token="dummy",
+            max_retries=-1,
+            transport=httpx.MockTransport(lambda request: httpx.Response(200)),
+        )
 
 
 def test_malformed_json_body_raises_value_error():

@@ -31,10 +31,6 @@ class EOXClient(SupportClient):
 
     API_VERSION = 5
 
-    def _request(self, resource: str, params: dict[str, Any], page: int) -> EOXResponse:
-        path = f"/supporttools/eox/rest/{self.API_VERSION}/{resource}/{page}"
-        return EOXResponse.model_validate(self._get_json(path, params))
-
     def _iter_all(
         self,
         request_fn: Callable[..., EOXResponse],

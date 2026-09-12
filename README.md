@@ -54,6 +54,10 @@ All four WADL endpoints are exposed as `search_*` methods returning an
 | `EOXBySerialNumber/{pageIndex}/{serialNumbers}` | `search_by_serial_numbers` / `iter_serial_numbers` |
 | `EOXBySWReleaseString/{pageIndex}` | `search_by_software_releases` / `iter_software_releases` |
 
+The `iter_*` variants accept an optional `max_pages` keyword (default 1000) as
+a safety valve against runaway pagination; if the API never reports a final
+page, a `PaginationError` is raised instead of looping forever.
+
 If you already hold a token:
 
 ```python
@@ -90,7 +94,8 @@ handles this automatically:
   between requests, configurable via `min_request_interval`).
 - HTTP 429/408/425/5xx responses and transport errors are retried up to
   `max_retries` times (default 3) with `retry_delay` seconds between attempts
-  (default 5s), honoring the server's `Retry-After` header when present.
+  (default 5s), honoring the server's `Retry-After` header (both delay-seconds
+  and RFC 7231 HTTP-date formats) when present.
 - After retries are exhausted on a 429, a `RateLimitError` is raised; the CLI
   prints a message about hitting the daily limit and exits with code 2.
 - Non-retryable errors (e.g. HTTP 403) are raised immediately.
@@ -105,6 +110,24 @@ with EOXClient(client_id="...", client_secret="...", max_retries=5, retry_delay=
     except RateLimitError as exc:
         print(f"Hit the daily request limit: {exc}")
 ```
+
+## Error handling
+
+- `EOXAPIError` — raised when a response contains an `EOXError` payload. Call
+  `response.raise_for_error()` on `search_*` results; the `iter_*` variants
+  raise automatically.
+- `RetryError` — a request failed after exhausting all retries.
+- `RateLimitError` — a rate-limited request failed after exhausting retries
+  (subclass of `RetryError`).
+- `PaginationError` — pagination did not terminate within `max_pages`
+  (subclass of `RetryError`).
+- `ValueError` — invalid input, a malformed JSON response body, or an
+  unexpected response shape (possible API schema change). The message includes
+  the request path and the first validation error.
+
+The client tolerates common API quirks: a `null` `EOXRecord` is treated as an
+empty result set, and a single record returned as a bare object (not wrapped
+in a list) is accepted.
 
 ## Development
 
