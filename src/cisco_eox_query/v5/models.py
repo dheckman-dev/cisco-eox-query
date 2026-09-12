@@ -64,7 +64,6 @@ class EOXRecord(BaseModel):
             value = value.get("value")
         return None if _is_blank(value) else value
 
-
 class PaginationResponseRecord(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
@@ -78,7 +77,6 @@ class PaginationResponseRecord(BaseModel):
     def _blank_to_none(cls, value: Any) -> Any:
         return None if _is_blank(value) else value
 
-
 class EOXErrorInfo(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
@@ -91,7 +89,6 @@ class EOXErrorInfo(BaseModel):
     @classmethod
     def _blank_to_none(cls, value: Any) -> Any:
         return None if _is_blank(value) else value
-
 
 class EOXResponse(BaseModel):
     """Parsed response for any EOX v5 search method."""
