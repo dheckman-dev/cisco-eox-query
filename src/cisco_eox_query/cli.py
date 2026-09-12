@@ -13,7 +13,16 @@ from typing import Sequence
 
 import httpx
 
-from cisco_eox_query import EOXAPIError, EOXClient, EOXRecord, RateLimitError, RetryError, __version__
+from cisco_eox_query import (
+    EOXAPIError,
+    EOXClient,
+    EOXRecord,
+    PaginationError,
+    RateLimitError,
+    RetryError,
+    __version__,
+)
+from cisco_eox_query.constants import DEFAULT_MAX_PAGES
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
@@ -133,10 +142,14 @@ def _collect(request_fn, *args, **kwargs) -> list[EOXRecord]:
     records = []
     page = 1
     while True:
+        if page > DEFAULT_MAX_PAGES:
+            raise PaginationError(
+                f"pagination did not terminate after {DEFAULT_MAX_PAGES} pages"
+            )
         response = request_fn(*args, page=page, **kwargs)
         response.raise_for_error()
         records.extend(response.records)
-        last = response.pagination.last_index if response.pagination else 1
+        last = response.pagination.last_index if response.pagination and response.pagination.last_index else 1
         if page >= last:
             return records
         page += 1

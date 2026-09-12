@@ -50,6 +50,10 @@ class RateLimitError(RetryError):
     """Raised when a rate-limited request fails after exhausting all retries."""
 
 
+class PaginationError(RetryError):
+    """Raised when pagination does not terminate within the page limit."""
+
+
 def _retry_after_seconds(response: httpx.Response, default: float) -> float:
     value = response.headers.get("Retry-After")
     if value:
@@ -127,7 +131,17 @@ class SupportClient:
         if response.status_code >= 400:
             logger.error("token request failed with %s: %s", response.status_code, response.text[:300])
         response.raise_for_status()
-        payload = response.json()
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ValueError(
+                f"invalid JSON from token endpoint {self.token_url}: {exc}"
+            ) from exc
+        if "access_token" not in payload:
+            raise ValueError(
+                f"token endpoint {self.token_url} returned no access_token "
+                f"(HTTP {response.status_code})"
+            )
         self._access_token = payload["access_token"]
         expires_in = float(payload.get("expires_in", 3600))
         self._token_expiry = time.monotonic() + expires_in - 300
@@ -220,11 +234,32 @@ class SupportClient:
                 "Accept": "application/json",
             },
         )
+        if response.status_code == HTTPStatus.UNAUTHORIZED and self.client_id is not None:
+            logger.warning(
+                "GET %s returned %s, refreshing token and retrying once",
+                path,
+                response.status_code,
+            )
+            self._fetch_token()
+            response = self._request_with_retry(
+                "GET",
+                path,
+                params=params or {},
+                headers={
+                    "Authorization": f"Bearer {self._access_token}",
+                    "Accept": "application/json",
+                },
+            )
         if response.status_code >= 400:
             logger.error("GET %s failed with %s: %s", path, response.status_code, response.text[:300])
         response.raise_for_status()
         logger.debug("GET %s -> %s (%d bytes)", path, response.status_code, len(response.content))
-        return response.json()
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise ValueError(
+                f"invalid JSON response from {path} (HTTP {response.status_code}): {exc}"
+            ) from exc
 
     def close(self) -> None:
         self._client.close()

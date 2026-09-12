@@ -6,7 +6,8 @@ import logging
 from typing import Any, Callable, Iterator, Sequence
 from urllib.parse import quote
 
-from cisco_eox_query._base import SupportClient
+from cisco_eox_query._base import PaginationError, SupportClient
+from cisco_eox_query.constants import DEFAULT_MAX_PAGES
 from cisco_eox_query.v5.constants import (
     EOX_ATTRIBS,
     MAX_INPUTS,
@@ -36,13 +37,20 @@ class EOXClient(SupportClient):
         self,
         request_fn: Callable[..., EOXResponse],
         *args: Any,
+        max_pages: int | None = None,
         **kwargs: Any,
     ) -> Iterator[EOXRecord]:
+        if max_pages is not None and max_pages < 1:
+            raise ValueError("max_pages must be >= 1")
+        limit = max_pages if max_pages is not None else DEFAULT_MAX_PAGES
         page = 1
         while True:
+            if page > limit:
+                raise PaginationError(f"pagination did not terminate after {limit} pages")
             response = request_fn(*args, page=page, **kwargs)
+            response.raise_for_error()
             yield from response.records
-            last = response.pagination.last_index if response.pagination else 1
+            last = response.pagination.last_index if response.pagination and response.pagination.last_index else 1
             if page >= last:
                 return
             page += 1
@@ -79,8 +87,17 @@ class EOXClient(SupportClient):
         logger.debug("EOXByDates path: %s", path)
         return EOXResponse.model_validate(self._get_json(path, params))
 
-    def iter_dates(self, start_date: str, end_date: str, **kwargs: Any) -> Iterator[EOXRecord]:
-        return self._iter_all(self.search_by_dates, start_date, end_date, **kwargs)
+    def iter_dates(
+        self,
+        start_date: str,
+        end_date: str,
+        *,
+        max_pages: int | None = None,
+        **kwargs: Any,
+    ) -> Iterator[EOXRecord]:
+        return self._iter_all(
+            self.search_by_dates, start_date, end_date, max_pages=max_pages, **kwargs
+        )
 
     def search_by_product_ids(
         self,
@@ -103,8 +120,12 @@ class EOXClient(SupportClient):
         )
         return EOXResponse.model_validate(self._get_json(path, {"responseencoding": response_encoding}))
 
-    def iter_product_ids(self, product_ids: str | Sequence[str], **kwargs: Any) -> Iterator[EOXRecord]:
-        return self._iter_all(self.search_by_product_ids, product_ids, **kwargs)
+    def iter_product_ids(
+        self, product_ids: str | Sequence[str], *, max_pages: int | None = None, **kwargs: Any
+    ) -> Iterator[EOXRecord]:
+        return self._iter_all(
+            self.search_by_product_ids, product_ids, max_pages=max_pages, **kwargs
+        )
 
     def search_by_serial_numbers(
         self,
@@ -126,8 +147,12 @@ class EOXClient(SupportClient):
         )
         return EOXResponse.model_validate(self._get_json(path, {"responseencoding": response_encoding}))
 
-    def iter_serial_numbers(self, serial_numbers: str | Sequence[str], **kwargs: Any) -> Iterator[EOXRecord]:
-        return self._iter_all(self.search_by_serial_numbers, serial_numbers, **kwargs)
+    def iter_serial_numbers(
+        self, serial_numbers: str | Sequence[str], *, max_pages: int | None = None, **kwargs: Any
+    ) -> Iterator[EOXRecord]:
+        return self._iter_all(
+            self.search_by_serial_numbers, serial_numbers, max_pages=max_pages, **kwargs
+        )
 
     def search_by_software_releases(
         self,
@@ -152,8 +177,12 @@ class EOXClient(SupportClient):
         path = f"/supporttools/eox/rest/{self.API_VERSION}/EOXBySWReleaseString/{page}"
         return EOXResponse.model_validate(self._get_json(path, params))
 
-    def iter_software_releases(self, *releases: SoftwareRelease, **kwargs: Any) -> Iterator[EOXRecord]:
-        return self._iter_all(self.search_by_software_releases, *releases, **kwargs)
+    def iter_software_releases(
+        self, *releases: SoftwareRelease, max_pages: int | None = None, **kwargs: Any
+    ) -> Iterator[EOXRecord]:
+        return self._iter_all(
+            self.search_by_software_releases, *releases, max_pages=max_pages, **kwargs
+        )
 
 
 def _validate_encoding(value: ResponseEncoding) -> None:
@@ -163,8 +192,11 @@ def _validate_encoding(value: ResponseEncoding) -> None:
 
 def _join_inputs(values: str | Sequence[str]) -> str:
     if isinstance(values, str):
-        return values
-    items = [str(value) for value in values]
+        items = [item.strip() for item in values.split(",") if item.strip()]
+    else:
+        items = [str(value).strip() for value in values]
+    if not items:
+        raise ValueError("at least one value is required")
     if len(items) > MAX_INPUTS:
         raise ValueError(f"at most {MAX_INPUTS} values are allowed")
     return ",".join(items)

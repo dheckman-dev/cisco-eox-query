@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-from cisco_eox_query._base import RateLimitError, RetryError
+from cisco_eox_query._base import PaginationError, RateLimitError, RetryError
 from cisco_eox_query.v5 import (
     EOX_ATTRIBS,
     OS_TYPES,
@@ -47,6 +47,7 @@ __all__ = [
     "PaginationResponseRecord",
     "RetryError",
     "RateLimitError",
+    "PaginationError",
     "EOX_ATTRIBS",
     "OS_TYPES",
     "SUPPORTED_API_VERSION",

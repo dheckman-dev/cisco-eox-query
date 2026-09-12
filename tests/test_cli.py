@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import re
 
+import pytest
+
 from cisco_eox_query import RateLimitError, cli
 from cisco_eox_query.v5.models import EOXResponse
 
@@ -111,3 +113,36 @@ def test_verbose_levels():
     assert cli._log_level(0) == logging.WARNING
     assert cli._log_level(1) == logging.INFO
     assert cli._log_level(2) == logging.DEBUG
+
+
+def test_collect_missing_last_index_returns_records():
+    def request_fn(*args, **kwargs):
+        return EOXResponse.model_validate(
+            {
+                "PaginationResponseRecord": {"PageIndex": 1, "TotalRecords": 1, "PageRecords": 1},
+                "EOXRecord": [{"EOLProductID": "P1"}],
+            }
+        )
+
+    records = cli._collect(request_fn)
+    assert [r.eol_product_id for r in records] == ["P1"]
+
+
+def test_collect_runaway_pagination_raises():
+    from cisco_eox_query import PaginationError
+
+    calls = []
+
+    def request_fn(*args, **kwargs):
+        page = kwargs["page"]
+        calls.append(page)
+        return EOXResponse.model_validate(
+            {
+                "PaginationResponseRecord": {"PageIndex": page, "LastIndex": page + 1},
+                "EOXRecord": [{"EOLProductID": f"P{page}"}],
+            }
+        )
+
+    with pytest.raises(PaginationError):
+        cli._collect(request_fn)
+    assert len(calls) == cli.DEFAULT_MAX_PAGES

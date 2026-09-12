@@ -136,3 +136,111 @@ def test_too_many_inputs_rejected():
     client = _client(lambda request: _json_response())
     with pytest.raises(ValueError):
         client.search_by_product_ids([f"PID{i}" for i in range(21)])
+
+
+def test_iter_product_ids_error_payload_raises():
+    payload = {"EOXError": {"ErrorID": "SSA_ERR_034", "ErrorDescription": "Access denied."}}
+
+    def handler(request):
+        return httpx.Response(200, json=payload)
+
+    client = _client(handler)
+    with pytest.raises(EOXAPIError):
+        list(client.iter_product_ids("WIC-1T="))
+
+
+def test_iter_dates_error_on_second_page_raises():
+    pages = {
+        "1": {
+            "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 2, "TotalRecords": 2, "PageRecords": 1},
+            "EOXRecord": [{"EOLProductID": "P1"}],
+        },
+        "2": {"EOXError": {"ErrorID": "SSA_ERR_034", "ErrorDescription": "Access denied."}},
+    }
+
+    def handler(request):
+        page = request.url.path.split("/EOXByDates/")[1].split("/")[0]
+        return httpx.Response(200, json=pages[page])
+
+    client = _client(handler)
+    with pytest.raises(EOXAPIError):
+        list(client.iter_dates("2011-01-01", "2011-01-31"))
+
+
+def test_iter_missing_last_index_returns_page_1():
+    payload = {
+        "PaginationResponseRecord": {"PageIndex": 1, "TotalRecords": 1, "PageRecords": 1},
+        "EOXRecord": [{"EOLProductID": "P1"}],
+    }
+
+    def handler(request):
+        return httpx.Response(200, json=payload)
+
+    client = _client(handler)
+    assert [r.eol_product_id for r in client.iter_product_ids("WIC-1T=")] == ["P1"]
+
+
+def test_iter_last_index_zero_returns_page_1():
+    payload = {
+        "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 0, "TotalRecords": 1, "PageRecords": 1},
+        "EOXRecord": [{"EOLProductID": "P1"}],
+    }
+
+    def handler(request):
+        return httpx.Response(200, json=payload)
+
+    client = _client(handler)
+    assert [r.eol_product_id for r in client.iter_product_ids("WIC-1T=")] == ["P1"]
+
+
+def test_iter_runaway_pagination_raises():
+    from cisco_eox_query import PaginationError
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        page = int(request.url.path.split("/EOXByProductID/")[1].split("/")[0])
+        return httpx.Response(
+            200,
+            json={
+                "PaginationResponseRecord": {
+                    "PageIndex": page,
+                    "LastIndex": page + 1,
+                    "TotalRecords": 100,
+                    "PageRecords": 1,
+                },
+                "EOXRecord": [{"EOLProductID": f"P{page}"}],
+            },
+        )
+
+    client = _client(handler)
+    with pytest.raises(PaginationError):
+        list(client.iter_product_ids("WIC-1T=", max_pages=3))
+    assert len(calls) == 3
+
+
+def test_comma_separated_string_too_many_inputs_rejected():
+    client = _client(lambda request: _json_response())
+    with pytest.raises(ValueError) as exc_info:
+        client.search_by_product_ids(",".join(f"PID{i}" for i in range(21)))
+    assert "at most 20" in str(exc_info.value)
+
+
+def test_empty_inputs_rejected():
+    client = _client(lambda request: _json_response())
+    with pytest.raises(ValueError) as exc_info:
+        client.search_by_product_ids([])
+    assert "at least one value" in str(exc_info.value)
+
+
+def test_input_whitespace_stripped_in_url():
+    captured = {}
+
+    def handler(request):
+        captured["url"] = str(request.url)
+        return _json_response()
+
+    client = _client(handler)
+    client.search_by_product_ids(" WIC-1T= , M92S1K9 ")
+    assert "WIC-1T=,M92S1K9" in captured["url"]
