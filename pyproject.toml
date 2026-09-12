@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cisco-eox-query"
+version = "1.0.0"
+description = "Python client for the Cisco End-of-Life (EOX) API"
+readme = "README.md"
+authors = [
+    { name = "Dave Heckman", email="david@heckman.network"},
+]
+maintainers = [
+    { name = "Dave Heckman", email="david@heckman.network"},
+]
+requires-python = ">=3.12"
+license = "MIT"
+keywords = ["cisco", "eox", "end-of-life", "end-of-support", "httpx", "pydantic"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.7",
+]
+
+[project.scripts]
+eox-query = "cisco_eox_query.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cisco_eox_query"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
