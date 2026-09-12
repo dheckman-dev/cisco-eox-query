@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from cisco_eox_query.constants import BASE_URL, TOKEN_URL
 from cisco_eox_query.v5.client import EOXClient
 from cisco_eox_query.v5.models import EOXAPIError
 
@@ -21,7 +22,7 @@ def test_token_flow_uses_client_credentials():
     def handler(request):
         calls.append(request)
         if request.method == "POST":
-            assert request.url.path == "/as/token.oauth2"
+            assert str(request.url) == TOKEN_URL
             return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})
         return _json_response()
 
@@ -40,7 +41,7 @@ def test_search_by_product_ids_path():
 
     client = _client(handler)
     client.search_by_product_ids(["15216-OADM1-35=", "M92S1K9-1.3.3C"])
-    assert captured["url"].startswith("https://api.cisco.com")
+    assert captured["url"].startswith(BASE_URL)
     assert "/supporttools/eox/rest/5/EOXByProductID/1/15216-OADM1-35=,M92S1K9-1.3.3C" in captured["url"]
 
 

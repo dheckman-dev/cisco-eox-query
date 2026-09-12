@@ -6,6 +6,7 @@ Installed as the ``eox-query`` console script.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 from typing import Sequence
@@ -13,6 +14,11 @@ from typing import Sequence
 import httpx
 
 from cisco_eox_query import EOXAPIError, EOXClient, EOXRecord, __version__
+
+LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+logger = logging.getLogger(__name__)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +43,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="pre-obtained bearer token (or EOX_ACCESS_TOKEN)",
     )
     parser.add_argument("--timeout", type=float, default=30.0, help="request timeout in seconds")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="increase log verbosity (-v info, -vv debug)",
+    )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -57,17 +70,32 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def setup_logging(level: int = logging.WARNING) -> None:
+    logging.basicConfig(level=level, format=LOG_FORMAT, datefmt=LOG_DATEFMT)
+
+
+def _log_level(verbose: int) -> int:
+    if verbose >= 2:
+        return logging.DEBUG
+    if verbose == 1:
+        return logging.INFO
+    return logging.WARNING
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    setup_logging(_log_level(args.verbose))
     try:
         with _build_client(args) as client:
             records = _dispatch(client, args)
         for record in records:
             _print_record(record)
-        if not records:
-            print("No EOX records found.")
+        if records:
+            logger.info("found %d EOX record(s)", len(records))
+        else:
+            logger.warning("No EOX records found.")
     except (ValueError, httpx.HTTPError, EOXAPIError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        logger.error("%s", exc)
         return 1
     return 0
 

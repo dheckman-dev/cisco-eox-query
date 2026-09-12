@@ -73,6 +73,14 @@ eox-query --client-id ... --client-secret ... software 12.4\(15\)T,IOS
 eox-query --client-id ... --client-secret ... dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE
 ```
 
+Logs go to stderr with the format `YYYY-MM-DD HH:MM:SS - SEVERITY - module - message`; queried records print to stdout so they can be piped. Diagnostics are silent by default and increase with `-v` (info) / `-vv` (debug).
+
+```bash
+eox-query -vv --client-id ... --client-secret ... pid WIC-1T=
+```
+
+Library users get the same structured loggers (`cisco_eox_query._base`, `cisco_eox_query.v5.client`, ...) without any handler configuration.
+
 ## Development
 
 ```bash

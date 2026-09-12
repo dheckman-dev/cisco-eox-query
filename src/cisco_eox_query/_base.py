@@ -8,12 +8,15 @@ client only concerns itself with endpoints and models.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Self
 
 import httpx
 
 from cisco_eox_query.constants import BASE_URL, DEFAULT_TIMEOUT, TOKEN_URL
+
+logger = logging.getLogger(__name__)
 
 
 class SupportClient:
@@ -42,7 +45,7 @@ class SupportClient:
             self._fetch_token()
 
     def _fetch_token(self) -> None:
-        headers = {"application": "x-www-form-urlencoded"}
+        logger.debug("requesting access token from %s", self.token_url)
         response = self._client.post(
             self.token_url,
             data={
@@ -55,10 +58,14 @@ class SupportClient:
                 "Content-Type": "application/x-www-form-urlencoded",
             },
         )
+        if response.status_code >= 400:
+            logger.error("token request failed with %s: %s", response.status_code, response.text[:300])
         response.raise_for_status()
         payload = response.json()
         self._access_token = payload["access_token"]
-        self._token_expiry = time.monotonic() + float(payload.get("expires_in", 3600)) - 300
+        expires_in = float(payload.get("expires_in", 3600))
+        self._token_expiry = time.monotonic() + expires_in - 300
+        logger.info("obtained access token (expires_in=%ss)", expires_in)
 
     def _ensure_token(self) -> None:
         if self._access_token is None:
@@ -68,10 +75,12 @@ class SupportClient:
             and self._token_expiry is not None
             and time.monotonic() >= self._token_expiry
         ):
+            logger.debug("access token expired, refreshing")
             self._fetch_token()
 
     def _get_json(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         self._ensure_token()
+        logger.debug("GET %s params=%s", path, params or {})
         response = self._client.get(
             path,
             params=params or {},
@@ -80,7 +89,10 @@ class SupportClient:
                 "Accept": "application/json",
             },
         )
+        if response.status_code >= 400:
+            logger.error("GET %s failed with %s: %s", path, response.status_code, response.text[:300])
         response.raise_for_status()
+        logger.debug("GET %s -> %s (%d bytes)", path, response.status_code, len(response.content))
         return response.json()
 
     def close(self) -> None:

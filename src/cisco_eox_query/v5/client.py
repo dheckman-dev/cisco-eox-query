@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable, Iterator, Sequence
 from urllib.parse import quote
 
@@ -13,6 +14,8 @@ from cisco_eox_query.v5.constants import (
     SoftwareRelease,
 )
 from cisco_eox_query.v5.models import EOXRecord, EOXResponse
+
+logger = logging.getLogger(__name__)
 
 
 class EOXClient(SupportClient):
@@ -73,6 +76,7 @@ class EOXClient(SupportClient):
             f"/supporttools/eox/rest/{self.API_VERSION}/EOXByDates/{page}/"
             f"{quote(str(start_date), safe='')}/{quote(str(end_date), safe='')}"
         )
+        logger.debug("EOXByDates path: %s", path)
         return EOXResponse.model_validate(self._get_json(path, params))
 
     def iter_dates(self, start_date: str, end_date: str, **kwargs: Any) -> Iterator[EOXRecord]:
@@ -92,6 +96,7 @@ class EOXClient(SupportClient):
         """
         _validate_encoding(response_encoding)
         ids = _join_inputs(product_ids)
+        logger.info("searching EOX by product ID(s): %s", ids)
         path = (
             f"/supporttools/eox/rest/{self.API_VERSION}/EOXByProductID/{page}/"
             f"{quote(ids, safe=',=')}"
@@ -114,6 +119,7 @@ class EOXClient(SupportClient):
         """
         _validate_encoding(response_encoding)
         numbers = _join_inputs(serial_numbers)
+        logger.info("searching EOX by serial number(s): %s", numbers)
         path = (
             f"/supporttools/eox/rest/{self.API_VERSION}/EOXBySerialNumber/{page}/"
             f"{quote(numbers, safe=',')}"
@@ -139,6 +145,7 @@ class EOXClient(SupportClient):
             raise ValueError("at least one software release is required")
         if len(releases) > MAX_INPUTS:
             raise ValueError(f"at most {MAX_INPUTS} software release inputs are allowed")
+        logger.info("searching EOX by software release(s): %s", ", ".join(map(str, releases)))
         params: dict[str, Any] = {"responseencoding": response_encoding}
         for index, release in enumerate(releases, start=1):
             params[f"input{index}"] = _format_release(release)
