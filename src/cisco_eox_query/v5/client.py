@@ -6,6 +6,8 @@ import logging
 from typing import Any, Callable, Iterator, Sequence
 from urllib.parse import quote
 
+from pydantic import ValidationError
+
 from cisco_eox_query._base import PaginationError, SupportClient
 from cisco_eox_query.constants import DEFAULT_MAX_PAGES
 from cisco_eox_query.v5.constants import (
@@ -85,7 +87,7 @@ class EOXClient(SupportClient):
             f"{quote(str(start_date), safe='')}/{quote(str(end_date), safe='')}"
         )
         logger.debug("EOXByDates path: %s", path)
-        return EOXResponse.model_validate(self._get_json(path, params))
+        return _parse_response(path, self._get_json(path, params))
 
     def iter_dates(
         self,
@@ -118,7 +120,7 @@ class EOXClient(SupportClient):
             f"/supporttools/eox/rest/{self.API_VERSION}/EOXByProductID/{page}/"
             f"{quote(ids, safe=',=')}"
         )
-        return EOXResponse.model_validate(self._get_json(path, {"responseencoding": response_encoding}))
+        return _parse_response(path, self._get_json(path, {"responseencoding": response_encoding}))
 
     def iter_product_ids(
         self, product_ids: str | Sequence[str], *, max_pages: int | None = None, **kwargs: Any
@@ -145,7 +147,7 @@ class EOXClient(SupportClient):
             f"/supporttools/eox/rest/{self.API_VERSION}/EOXBySerialNumber/{page}/"
             f"{quote(numbers, safe=',')}"
         )
-        return EOXResponse.model_validate(self._get_json(path, {"responseencoding": response_encoding}))
+        return _parse_response(path, self._get_json(path, {"responseencoding": response_encoding}))
 
     def iter_serial_numbers(
         self, serial_numbers: str | Sequence[str], *, max_pages: int | None = None, **kwargs: Any
@@ -175,7 +177,7 @@ class EOXClient(SupportClient):
         for index, release in enumerate(releases, start=1):
             params[f"input{index}"] = _format_release(release)
         path = f"/supporttools/eox/rest/{self.API_VERSION}/EOXBySWReleaseString/{page}"
-        return EOXResponse.model_validate(self._get_json(path, params))
+        return _parse_response(path, self._get_json(path, params))
 
     def iter_software_releases(
         self, *releases: SoftwareRelease, max_pages: int | None = None, **kwargs: Any
@@ -188,6 +190,18 @@ class EOXClient(SupportClient):
 def _validate_encoding(value: ResponseEncoding) -> None:
     if value not in ("json", "xml"):
         raise ValueError(f"invalid responseencoding: {value}")
+
+
+def _parse_response(path: str, payload: dict[str, Any]) -> EOXResponse:
+    try:
+        return EOXResponse.model_validate(payload)
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        loc = ".".join(str(part) for part in first["loc"]) or "<root>"
+        raise ValueError(
+            f"unexpected response from {path}: {exc.error_count()} validation error(s) "
+            f"(the EOX API schema may have changed); first error at {loc}: {first['msg']}"
+        ) from exc
 
 
 def _join_inputs(values: str | Sequence[str]) -> str:

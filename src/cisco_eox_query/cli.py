@@ -156,24 +156,24 @@ def _collect(request_fn, *args, **kwargs) -> list[EOXRecord]:
 
 
 def _print_record(record: EOXRecord) -> None:
-    migration = record.migration_details.migration_product_id if record.migration_details else None
+    migration = record.migration_details
     print(record.eol_product_id or "<no product id>")
     for label, value in [
         ("Product Description", record.product_id_description),
         ("Bulletin", record.product_bulletin_number),
         ("Bulletin Link", record.link_to_product_bulletin_url),
         ("Announcement", record.eox_external_announcement_date),
-        ("End Of Sale", record.end_of_sale_date), 
+        ("End Of Sale", record.end_of_sale_date),
         ("SW Maintenance Ends", record.end_of_sw_maintenance_releases),
         ("Security Vulnerability Support Ends", record.end_of_security_vul_support_date),
         ("Routine Failure Analysis Ends", record.end_of_routine_failure_analysis_date),
         ("Service Contract Renewal", record.end_of_service_contract_renewal),
         ("Last Date of Support", record.last_date_of_support),
         ("Service Attach Ends", record.end_of_svc_attach_date),
-        ("Migration Product", record.migration_details.migration_information),
-        ("Migration Product Info URL", record.migration_details.migration_product_info_url),
-        ("Migration Product ID", record.migration_details.migration_product_id),
-        ("Migration Strategy", record.migration_details.migration_strategy),
+        ("Migration Product", migration.migration_information if migration else None),
+        ("Migration Product Info URL", migration.migration_product_info_url if migration else None),
+        ("Migration Product ID", migration.migration_product_id if migration else None),
+        ("Migration Strategy", migration.migration_strategy if migration else None),
     ]:
         if value is not None:
             print(f"  {label:<30} {value}")

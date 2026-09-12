@@ -99,6 +99,15 @@ class EOXResponse(BaseModel):
     records: list[EOXRecord] = Field(default_factory=list, alias="EOXRecord")
     error: EOXErrorInfo | None = Field(default=None, alias="EOXError")
 
+    @field_validator("records", mode="before")
+    @classmethod
+    def _normalise_records(cls, value: Any) -> Any:
+        if value is None:
+            return []
+        if isinstance(value, dict):
+            return [value]
+        return value
+
     def raise_for_error(self) -> None:
         if self.error is not None:
             raise EOXAPIError(self.error)

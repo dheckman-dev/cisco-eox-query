@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 
 import httpx
 import pytest
@@ -88,6 +90,77 @@ def test_retries_exhausted_on_503_raises_retry_error():
     with pytest.raises(RetryError):
         client.search_by_product_ids("WIC-1T=")
     assert len(calls) == 2
+
+
+def test_retry_after_http_date_honored(monkeypatch):
+    calls = []
+    sleeps = []
+    monkeypatch.setattr("cisco_eox_query._base.time.sleep", sleeps.append)
+    retry_at = datetime.now(timezone.utc) + timedelta(seconds=10)
+    retry_after = format_datetime(retry_at, usegmt=True)
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"Retry-After": retry_after})
+        return httpx.Response(200, json=_payload())
+
+    client = _client(handler)
+    response = client.search_by_product_ids("WIC-1T=")
+    assert len(calls) == 2
+    assert len(sleeps) == 1
+    assert 8.0 <= sleeps[0] <= 10.5
+
+
+def test_retry_after_seconds_honored(monkeypatch):
+    calls = []
+    sleeps = []
+    monkeypatch.setattr("cisco_eox_query._base.time.sleep", sleeps.append)
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"Retry-After": "3"})
+        return httpx.Response(200, json=_payload())
+
+    client = _client(handler)
+    response = client.search_by_product_ids("WIC-1T=")
+    assert len(calls) == 2
+    assert sleeps == [3.0]
+
+
+def test_retry_after_invalid_falls_back_to_retry_delay(monkeypatch):
+    calls = []
+    sleeps = []
+    monkeypatch.setattr("cisco_eox_query._base.time.sleep", sleeps.append)
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"Retry-After": "not-a-date"})
+        return httpx.Response(200, json=_payload())
+
+    client = _client(handler, retry_delay=2.0)
+    response = client.search_by_product_ids("WIC-1T=")
+    assert len(calls) == 2
+    assert sleeps == [2.0]
+
+
+def test_retry_after_negative_clamped_to_zero(monkeypatch):
+    calls = []
+    sleeps = []
+    monkeypatch.setattr("cisco_eox_query._base.time.sleep", sleeps.append)
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"Retry-After": "-5"})
+        return httpx.Response(200, json=_payload())
+
+    client = _client(handler)
+    response = client.search_by_product_ids("WIC-1T=")
+    assert len(calls) == 2
+    assert sleeps == [0.0]
 
 
 def test_transport_error_retries_then_succeeds():
@@ -235,6 +308,41 @@ def test_401_after_refresh_still_raises():
         client.search_by_product_ids("WIC-1T=")
     assert sum(r.method == "POST" for r in calls) == 2
     assert sum(r.method == "GET" for r in calls) == 2
+
+
+def test_token_post_body_contains_client_credentials():
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if request.method == "POST":
+            return _token_response("tok")
+        return httpx.Response(200, json=_payload())
+
+    client = _credential_client(handler)
+    client.search_by_product_ids("WIC-1T=")
+    body = [r.content.decode() for r in calls if r.method == "POST"][0]
+    assert "grant_type=client_credentials" in body
+    assert "client_id=cid" in body
+    assert "client_secret=csecret" in body
+
+
+def test_retry_get_requests_always_authorized(monkeypatch):
+    calls = []
+    sleeps = []
+    monkeypatch.setattr("cisco_eox_query._base.time.sleep", sleeps.append)
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(429, headers={"Retry-After": "0"})
+        return httpx.Response(200, json=_payload())
+
+    client = _client(handler)
+    client.search_by_product_ids("WIC-1T=")
+    get_requests = [r for r in calls if r.method == "GET"]
+    assert len(get_requests) == 2
+    assert all(r.headers["authorization"] == "Bearer dummy" for r in get_requests)
 
 
 def test_token_response_missing_access_token_raises():

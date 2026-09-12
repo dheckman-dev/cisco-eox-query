@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from typing import Any, Self
 
@@ -56,12 +58,19 @@ class PaginationError(RetryError):
 
 def _retry_after_seconds(response: httpx.Response, default: float) -> float:
     value = response.headers.get("Retry-After")
-    if value:
-        try:
-            return max(0.0, float(value))
-        except ValueError:
-            pass
-    return default
+    if not value:
+        return default
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        retry_at = parsedate_to_datetime(value)
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+    except (TypeError, ValueError):
+        return default
 
 
 class SupportClient:

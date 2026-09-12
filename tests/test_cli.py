@@ -52,6 +52,49 @@ def test_main_pid_prints_records(monkeypatch, capsys, eox_response_payload):
     assert "HWIC-1T=" in out
 
 
+def test_main_record_without_migration_details_does_not_crash(monkeypatch, capsys):
+    payload = {"EOXRecord": [{"EOLProductID": "WIC-1T=", "EndOfSaleDate": "2009-12-28"}]}
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(payload))
+    assert cli.main(["--access-token", "t", "pid", "WIC-1T="]) == 0
+    assert "WIC-1T=" in capsys.readouterr().out
+
+
+def test_main_serial_dispatch_prints_product_id(monkeypatch, capsys, eox_response_payload):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(eox_response_payload))
+    assert cli.main(["--access-token", "t", "serial", "FHK0933224R"]) == 0
+    assert "WIC-1T=" in capsys.readouterr().out
+
+
+def test_main_software_dispatch(monkeypatch, eox_response_payload):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(eox_response_payload))
+    assert cli.main(["--access-token", "t", "software", "12.4(15)T,IOS"]) == 0
+
+
+def test_main_dates_attribs_dispatch(monkeypatch, eox_response_payload):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(eox_response_payload))
+    assert (
+        cli.main(
+            [
+                "--access-token",
+                "t",
+                "dates",
+                "2011-01-01",
+                "2015-12-31",
+                "--attribs",
+                "EO_SALES_DATE,EO_LAST_SUPPORT_DATE",
+            ]
+        )
+        == 0
+    )
+
+
+def test_main_version_flag(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--version"])
+    assert exc_info.value.code == 0
+    assert "eox-query" in capsys.readouterr().out
+
+
 def test_main_no_credentials(monkeypatch, caplog):
     monkeypatch.delenv("EOX_CLIENT_ID", raising=False)
     monkeypatch.delenv("EOX_CLIENT_SECRET", raising=False)

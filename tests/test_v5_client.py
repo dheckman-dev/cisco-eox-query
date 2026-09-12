@@ -132,6 +132,39 @@ def test_error_response_raises():
         client.search_by_product_ids("WIC-1T=").raise_for_error()
 
 
+def test_invalid_date_raises_friendly_schema_drift_error():
+    payload = {"EOXRecord": [{"EOLProductID": "X", "EndOfSaleDate": "not-a-date"}]}
+
+    def handler(request):
+        return _json_response(payload)
+
+    client = _client(handler)
+    with pytest.raises(ValueError) as exc_info:
+        client.search_by_product_ids("X")
+    message = str(exc_info.value)
+    assert "unexpected response" in message
+    assert "validation error" in message
+
+
+def test_null_eoxrecord_returns_empty_records():
+    def handler(request):
+        return _json_response({"EOXRecord": None})
+
+    client = _client(handler)
+    response = client.search_by_product_ids("X")
+    assert response.records == []
+
+
+def test_single_record_dict_returns_one_record():
+    def handler(request):
+        return _json_response({"EOXRecord": {"EOLProductID": "X"}})
+
+    client = _client(handler)
+    response = client.search_by_product_ids("X")
+    assert len(response.records) == 1
+    assert response.records[0].eol_product_id == "X"
+
+
 def test_too_many_inputs_rejected():
     client = _client(lambda request: _json_response())
     with pytest.raises(ValueError):
@@ -244,3 +277,40 @@ def test_input_whitespace_stripped_in_url():
     client = _client(handler)
     client.search_by_product_ids(" WIC-1T= , M92S1K9 ")
     assert "WIC-1T=,M92S1K9" in captured["url"]
+
+
+def test_single_element_release_tuple_succeeds():
+    captured = {}
+
+    def handler(request):
+        captured["url"] = str(request.url)
+        return _json_response()
+
+    client = _client(handler)
+    client.search_by_software_releases(("12.4(15)T",))
+    assert "input1=12.4%2815%29T" in captured["url"]
+
+
+def test_three_element_release_tuple_rejected():
+    client = _client(lambda request: _json_response())
+    with pytest.raises(ValueError):
+        client.search_by_software_releases(("a", "b", "c"))
+
+
+def test_invalid_response_encoding_rejected():
+    client = _client(lambda request: _json_response())
+    with pytest.raises(ValueError):
+        client.search_by_product_ids("X", response_encoding="yaml")
+
+
+def test_no_releases_rejected():
+    client = _client(lambda request: _json_response())
+    with pytest.raises(ValueError):
+        client.search_by_software_releases()
+
+
+def test_too_many_releases_rejected():
+    client = _client(lambda request: _json_response())
+    with pytest.raises(ValueError) as exc_info:
+        client.search_by_software_releases(*[f"rel{i},IOS" for i in range(21)])
+    assert "at most 20" in str(exc_info.value)

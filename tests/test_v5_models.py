@@ -58,3 +58,31 @@ def test_empty_payload():
     assert response.records == []
     assert response.pagination is None
     assert response.error is None
+
+
+def test_null_eoxrecord_means_empty_records():
+    response = EOXResponse.model_validate({"EOXRecord": None})
+    assert response.records == []
+
+
+def test_single_record_dict_is_accepted():
+    response = EOXResponse.model_validate({"EOXRecord": {"EOLProductID": "WIC-1T="}})
+    assert len(response.records) == 1
+    assert response.records[0].eol_product_id == "WIC-1T="
+
+
+def test_string_pagination_fields_coerced_to_int():
+    response = EOXResponse.model_validate(
+        {
+            "PaginationResponseRecord": {
+                "PageIndex": "1",
+                "LastIndex": "2",
+                "TotalRecords": "2",
+                "PageRecords": "1",
+            }
+        }
+    )
+    assert response.pagination.page_index == 1
+    assert response.pagination.last_index == 2
+    assert response.pagination.total_records == 2
+    assert response.pagination.page_records == 1
