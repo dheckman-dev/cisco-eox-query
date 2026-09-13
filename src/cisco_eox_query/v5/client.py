@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from typing import Any
 from urllib.parse import quote
 
 from pydantic import ValidationError
@@ -48,7 +49,11 @@ class EOXClient(SupportClient):
             response = request_fn(*args, page=page, **kwargs)
             response.raise_for_error()
             yield from response.records
-            last = response.pagination.last_index if response.pagination and response.pagination.last_index else 1
+            last = (
+                response.pagination.last_index
+                if response.pagination and response.pagination.last_index
+                else 1
+            )
             if page >= last:
                 return
             page += 1

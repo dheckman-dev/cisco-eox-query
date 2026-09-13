@@ -8,7 +8,7 @@ The examples are surfaced two ways:
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 Example = tuple[str, str]
 
@@ -27,7 +27,7 @@ ROOT_EXAMPLES: list[Example] = [
     ),
     (
         "Query by date range",
-        "eox-query --client-id ID --client-secret SECRET dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE",
+        "eox-query --client-id ID --client-secret SECRET dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE",  # noqa: E501
     ),
     (
         "Use environment variables for credentials",
@@ -75,7 +75,7 @@ COMMAND_EXAMPLES: dict[str, list[Example]] = {
         ),
         (
             "Query multiple releases",
-            "eox-query --client-id ID --client-secret SECRET software '12.4(15)T,IOS' '15.1(2)T,IOS'",
+            "eox-query --client-id ID --client-secret SECRET software '12.4(15)T,IOS' '15.1(2)T,IOS'",  # noqa: E501
         ),
         (
             "Query by release only",
@@ -89,11 +89,11 @@ COMMAND_EXAMPLES: dict[str, list[Example]] = {
         ),
         (
             "Filter by a single attribute",
-            "eox-query --client-id ID --client-secret SECRET dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE",
+            "eox-query --client-id ID --client-secret SECRET dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE",  # noqa: E501
         ),
         (
             "Filter by multiple attributes",
-            "eox-query --client-id ID --client-secret SECRET dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE,EO_LAST_SUPPORT_DATE",
+            "eox-query --client-id ID --client-secret SECRET dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE,EO_LAST_SUPPORT_DATE",  # noqa: E501
         ),
     ],
 }
@@ -126,8 +126,8 @@ def format_epilog(examples: Sequence[Example]) -> str:
 
 
 __all__ = [
-    "ROOT_EXAMPLES",
     "COMMAND_EXAMPLES",
-    "format_examples",
+    "ROOT_EXAMPLES",
     "format_epilog",
+    "format_examples",
 ]

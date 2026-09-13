@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 
 import httpx
@@ -104,7 +104,7 @@ def test_retry_after_http_date_honored(monkeypatch):
     calls = []
     sleeps = []
     monkeypatch.setattr("cisco_eox_query._base.time.sleep", sleeps.append)
-    retry_at = datetime.now(timezone.utc) + timedelta(seconds=10)
+    retry_at = datetime.now(UTC) + timedelta(seconds=10)
     retry_after = format_datetime(retry_at, usegmt=True)
 
     def handler(request):
@@ -114,7 +114,7 @@ def test_retry_after_http_date_honored(monkeypatch):
         return httpx.Response(200, json=_payload())
 
     client = _client(handler)
-    response = client.search_by_product_ids("WIC-1T=")
+    client.search_by_product_ids("WIC-1T=")
     assert len(calls) == 2
     assert len(sleeps) == 1
     assert 8.0 <= sleeps[0] <= 10.5
@@ -132,7 +132,7 @@ def test_retry_after_seconds_honored(monkeypatch):
         return httpx.Response(200, json=_payload())
 
     client = _client(handler)
-    response = client.search_by_product_ids("WIC-1T=")
+    client.search_by_product_ids("WIC-1T=")
     assert len(calls) == 2
     assert sleeps == [3.0]
 
@@ -149,7 +149,7 @@ def test_retry_after_invalid_falls_back_to_retry_delay(monkeypatch):
         return httpx.Response(200, json=_payload())
 
     client = _client(handler, retry_delay=2.0)
-    response = client.search_by_product_ids("WIC-1T=")
+    client.search_by_product_ids("WIC-1T=")
     assert len(calls) == 2
     assert sleeps == [2.0]
 
@@ -166,7 +166,7 @@ def test_retry_after_negative_clamped_to_zero(monkeypatch):
         return httpx.Response(200, json=_payload())
 
     client = _client(handler)
-    response = client.search_by_product_ids("WIC-1T=")
+    client.search_by_product_ids("WIC-1T=")
     assert len(calls) == 2
     assert sleeps == [0.0]
 
@@ -359,7 +359,7 @@ def test_token_post_body_contains_client_credentials():
 
     client = _credential_client(handler)
     client.search_by_product_ids("WIC-1T=")
-    body = [r.content.decode() for r in calls if r.method == "POST"][0]
+    body = next(r.content.decode() for r in calls if r.method == "POST")
     assert "grant_type=client_credentials" in body
     assert "client_id=cid" in body
     assert "client_secret=csecret" in body

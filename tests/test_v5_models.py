@@ -35,7 +35,9 @@ def test_error_payload_raise_for_error(eox_response_payload):
     eox_response_payload["EOXRecord"] = []
     eox_response_payload["EOXError"] = {
         "ErrorID": "SSA_ERR_026",
-        "ErrorDescription": "EOX information does not exist for the following product ID(s): ILPM-8=",
+        "ErrorDescription": (
+            "EOX information does not exist for the following product ID(s): ILPM-8="
+        ),
         "ErrorDataType": "PRODUCT_ID",
         "ErrorDataValue": "ILPM-8=",
     }

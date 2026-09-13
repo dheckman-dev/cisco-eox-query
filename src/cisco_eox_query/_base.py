@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from typing import Any, Self
@@ -33,13 +33,13 @@ logger = logging.getLogger(__name__)
 
 _RETRYABLE_STATUS_CODES = frozenset(
     {
-        HTTPStatus.REQUEST_TIMEOUT,               # 408
-        HTTPStatus.TOO_EARLY,                     # 425
-        HTTPStatus.TOO_MANY_REQUESTS,             # 429
-        HTTPStatus.INTERNAL_SERVER_ERROR,         # 500
-        HTTPStatus.BAD_GATEWAY,                   # 502
-        HTTPStatus.SERVICE_UNAVAILABLE,           # 503
-        HTTPStatus.GATEWAY_TIMEOUT,               # 504
+        HTTPStatus.REQUEST_TIMEOUT,  # 408
+        HTTPStatus.TOO_EARLY,  # 425
+        HTTPStatus.TOO_MANY_REQUESTS,  # 429
+        HTTPStatus.INTERNAL_SERVER_ERROR,  # 500
+        HTTPStatus.BAD_GATEWAY,  # 502
+        HTTPStatus.SERVICE_UNAVAILABLE,  # 503
+        HTTPStatus.GATEWAY_TIMEOUT,  # 504
     }
 )
 
@@ -67,8 +67,8 @@ def _retry_after_seconds(response: httpx.Response, default: float) -> float:
     try:
         retry_at = parsedate_to_datetime(value)
         if retry_at.tzinfo is None:
-            retry_at = retry_at.replace(tzinfo=timezone.utc)
-        return max(0.0, (retry_at - datetime.now(timezone.utc)).total_seconds())
+            retry_at = retry_at.replace(tzinfo=UTC)
+        return max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
     except (TypeError, ValueError):
         return default
 
@@ -138,14 +138,14 @@ class SupportClient:
             },
         )
         if response.status_code >= 400:
-            logger.error("token request failed with %s: %s", response.status_code, response.text[:300])
+            logger.error(
+                "token request failed with %s: %s", response.status_code, response.text[:300]
+            )
         response.raise_for_status()
         try:
             payload = response.json()
         except ValueError as exc:
-            raise ValueError(
-                f"invalid JSON from token endpoint {self.token_url}: {exc}"
-            ) from exc
+            raise ValueError(f"invalid JSON from token endpoint {self.token_url}: {exc}") from exc
         if "access_token" not in payload:
             raise ValueError(
                 f"token endpoint {self.token_url} returned no access_token "
@@ -259,7 +259,9 @@ class SupportClient:
                 },
             )
         if response.status_code >= 400:
-            logger.error("GET %s failed with %s: %s", path, response.status_code, response.text[:300])
+            logger.error(
+                "GET %s failed with %s: %s", path, response.status_code, response.text[:300]
+            )
         response.raise_for_status()
         logger.debug("GET %s -> %s (%d bytes)", path, response.status_code, len(response.content))
         try:

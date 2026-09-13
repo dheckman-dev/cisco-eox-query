@@ -171,7 +171,9 @@ def test_log_format_output():
         exc_info=None,
     )
     line = formatter.format(record)
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} - ERROR - cisco_eox_query\.cli - boom", line)
+    assert re.fullmatch(
+        r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} - ERROR - cisco_eox_query\.cli - boom", line
+    )
 
 
 def test_verbose_levels():
@@ -272,9 +274,7 @@ def test_subcommand_help_contains_examples(capsys):
 
 
 def test_format_examples():
-    text = cli.format_examples(
-        [("Query a product", "eox-query pid WIC-1T=")], title="Examples"
-    )
+    text = cli.format_examples([("Query a product", "eox-query pid WIC-1T=")], title="Examples")
     assert text.startswith("Examples\n")
     assert "Query a product:" in text
     assert "  eox-query pid WIC-1T=" in text

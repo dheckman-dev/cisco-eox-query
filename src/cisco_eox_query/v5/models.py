@@ -44,12 +44,22 @@ class EOXRecord(BaseModel):
     product_id_description: str | None = Field(default=None, alias="ProductIDDescription")
     product_bulletin_number: str | None = Field(default=None, alias="ProductBulletinNumber")
     link_to_product_bulletin_url: str | None = Field(default=None, alias="LinkToProductBulletinURL")
-    eox_external_announcement_date: date | None = Field(default=None, alias="EOXExternalAnnouncementDate")
+    eox_external_announcement_date: date | None = Field(
+        default=None, alias="EOXExternalAnnouncementDate"
+    )
     end_of_sale_date: date | None = Field(default=None, alias="EndOfSaleDate")
-    end_of_sw_maintenance_releases: date | None = Field(default=None, alias="EndOfSWMaintenanceReleases")
-    end_of_security_vul_support_date: date | None = Field(default=None, alias="EndOfSecurityVulSupportDate")
-    end_of_routine_failure_analysis_date: date | None = Field(default=None, alias="EndOfRoutineFailureAnalysisDate")
-    end_of_service_contract_renewal: date | None = Field(default=None, alias="EndOfServiceContractRenewal")
+    end_of_sw_maintenance_releases: date | None = Field(
+        default=None, alias="EndOfSWMaintenanceReleases"
+    )
+    end_of_security_vul_support_date: date | None = Field(
+        default=None, alias="EndOfSecurityVulSupportDate"
+    )
+    end_of_routine_failure_analysis_date: date | None = Field(
+        default=None, alias="EndOfRoutineFailureAnalysisDate"
+    )
+    end_of_service_contract_renewal: date | None = Field(
+        default=None, alias="EndOfServiceContractRenewal"
+    )
     last_date_of_support: date | None = Field(default=None, alias="LastDateOfSupport")
     end_of_svc_attach_date: date | None = Field(default=None, alias="EndOfSvcAttachDate")
     updated_time_stamp: date | None = Field(default=None, alias="UpdatedTimeStamp")
@@ -64,6 +74,7 @@ class EOXRecord(BaseModel):
             value = value.get("value")
         return None if _is_blank(value) else value
 
+
 class PaginationResponseRecord(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
@@ -76,6 +87,7 @@ class PaginationResponseRecord(BaseModel):
     @classmethod
     def _blank_to_none(cls, value: Any) -> Any:
         return None if _is_blank(value) else value
+
 
 class EOXErrorInfo(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
@@ -90,12 +102,15 @@ class EOXErrorInfo(BaseModel):
     def _blank_to_none(cls, value: Any) -> Any:
         return None if _is_blank(value) else value
 
+
 class EOXResponse(BaseModel):
     """Parsed response for any EOX v5 search method."""
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
-    pagination: PaginationResponseRecord | None = Field(default=None, alias="PaginationResponseRecord")
+    pagination: PaginationResponseRecord | None = Field(
+        default=None, alias="PaginationResponseRecord"
+    )
     records: list[EOXRecord] = Field(default_factory=list, alias="EOXRecord")
     error: EOXErrorInfo | None = Field(default=None, alias="EOXError")
 
