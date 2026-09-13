@@ -1,0 +1,16 @@
+# CODEOWNERS — required reviewers for paths on GitHub.
+# Syntax: <pattern> <owner>...
+# Owners can be @users or @org/team. Used by the "Require review from
+# Code Owners" branch protection / ruleset setting.
+
+# Default: every path is owned by the repository maintainer.
+* @dheckman-dev
+
+# CI/CD configuration and workflows.
+/.github/ @dheckman-dev
+
+# Security policy — changes require explicit maintainer review.
+/SECURITY.md @dheckman-dev
+
+# License changes.
+/LICENSE @dheckman-dev
