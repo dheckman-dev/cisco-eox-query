@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
@@ -33,6 +34,12 @@ dependencies = [
 [project.scripts]
 eox-query = "cisco_eox_query.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/dheckman-dev/cisco-eox-query"
+Repository = "https://github.com/dheckman-dev/cisco-eox-query"
+Documentation = "https://github.com/dheckman-dev/cisco-eox-query#readme"
+Issues = "https://github.com/dheckman-dev/cisco-eox-query/issues"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
@@ -41,6 +48,23 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cisco_eox_query"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+  "/.envrc",
+  "/.gitignore",
+  "/.pytest_cache",
+  "/.python-version",
+  "/.tox",
+  "/.venv",
+  "/.coverage",
+  "/coverage.xml",
+  "/dist",
+  "/tests",
+  "/tox.ini",
+  "/uv.lock",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

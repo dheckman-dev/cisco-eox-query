@@ -1,0 +1,52 @@
+name: Publish
+
+# One-time setup (maintainer, on PyPI):
+# 1. Create the project on pypi.org and test.pypi.org.
+# 2. Enable 2FA on the PyPI account.
+# 3. On each PyPI project, add a "pending publisher" under
+#    Publishing settings with:
+#      - GitHub owner: dheckman-dev
+#      - Repository:   cisco-eox-query
+#      - Workflow filename: publish.yml
+#      - Environment:  pypi
+#    (the environment MUST match the `environment:` key below)
+# No API tokens are needed — this workflow uses OIDC trusted publishing.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
