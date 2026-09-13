@@ -6,6 +6,9 @@ Built on `httpx` for transport and `pydantic` for response models. This package
 implements the Cisco EOX API v5 as described by
 `Cisco-End-of-Life-EOX-v5_0.wadl`.
 
+![Python versions](https://img.shields.io/pypi/pyversions/cisco-eox-query)
+![Coverage](https://img.shields.io/codecov/c/github/dheckman-dev/cisco-eox-query)
+
 ## Versioning
 
 Library major versions track the EOX API version:

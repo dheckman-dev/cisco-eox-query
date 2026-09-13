@@ -36,6 +36,7 @@ eox-query = "cisco_eox_query.cli:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=4.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -44,3 +45,11 @@ packages = ["src/cisco_eox_query"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["cisco_eox_query"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
