@@ -38,18 +38,18 @@ except PackageNotFoundError:
 SUPPORTED_API_VERSION = 5
 
 __all__ = [
-    "EOXClient",
-    "EOXRecord",
-    "EOXResponse",
-    "EOXErrorInfo",
-    "EOXAPIError",
-    "MigrationDetails",
-    "PaginationResponseRecord",
-    "RetryError",
-    "RateLimitError",
-    "PaginationError",
     "EOX_ATTRIBS",
     "OS_TYPES",
     "SUPPORTED_API_VERSION",
+    "EOXAPIError",
+    "EOXClient",
+    "EOXErrorInfo",
+    "EOXRecord",
+    "EOXResponse",
+    "MigrationDetails",
+    "PaginationError",
+    "PaginationResponseRecord",
+    "RateLimitError",
+    "RetryError",
     "__version__",
 ]

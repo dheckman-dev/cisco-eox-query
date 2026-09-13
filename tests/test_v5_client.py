@@ -53,7 +53,10 @@ def test_search_by_product_ids_path():
     client = _client(handler)
     client.search_by_product_ids(["15216-OADM1-35=", "M92S1K9-1.3.3C"])
     assert captured["url"].startswith(BASE_URL)
-    assert "/supporttools/eox/rest/5/EOXByProductID/1/15216-OADM1-35=,M92S1K9-1.3.3C" in captured["url"]
+    assert (
+        "/supporttools/eox/rest/5/EOXByProductID/1/15216-OADM1-35=,M92S1K9-1.3.3C"
+        in captured["url"]
+    )
 
 
 def test_search_by_serial_numbers_page():
@@ -90,7 +93,9 @@ def test_search_by_dates_attribs():
         return _json_response()
 
     client = _client(handler)
-    client.search_by_dates("2011-01-01", "2015-12-31", attribs=["EO_SALES_DATE", "EO_LAST_SUPPORT_DATE"])
+    client.search_by_dates(
+        "2011-01-01", "2015-12-31", attribs=["EO_SALES_DATE", "EO_LAST_SUPPORT_DATE"]
+    )
     assert "/EOXByDates/1/2011-01-01/2015-12-31" in captured["url"]
     assert "eoxAttrib=EO_SALES_DATE%2CEO_LAST_SUPPORT_DATE" in captured["url"]
 
@@ -98,11 +103,21 @@ def test_search_by_dates_attribs():
 def test_iter_dates_paginates():
     pages = {
         "1": {
-            "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 2, "TotalRecords": 2, "PageRecords": 1},
+            "PaginationResponseRecord": {
+                "PageIndex": 1,
+                "LastIndex": 2,
+                "TotalRecords": 2,
+                "PageRecords": 1,
+            },
             "EOXRecord": [{"EOLProductID": "P1"}],
         },
         "2": {
-            "PaginationResponseRecord": {"PageIndex": 2, "LastIndex": 2, "TotalRecords": 2, "PageRecords": 1},
+            "PaginationResponseRecord": {
+                "PageIndex": 2,
+                "LastIndex": 2,
+                "TotalRecords": 2,
+                "PageRecords": 1,
+            },
             "EOXRecord": [{"EOLProductID": "P2"}],
         },
     }
@@ -185,7 +200,12 @@ def test_iter_product_ids_error_payload_raises():
 def test_iter_dates_error_on_second_page_raises():
     pages = {
         "1": {
-            "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 2, "TotalRecords": 2, "PageRecords": 1},
+            "PaginationResponseRecord": {
+                "PageIndex": 1,
+                "LastIndex": 2,
+                "TotalRecords": 2,
+                "PageRecords": 1,
+            },
             "EOXRecord": [{"EOLProductID": "P1"}],
         },
         "2": {"EOXError": {"ErrorID": "SSA_ERR_034", "ErrorDescription": "Access denied."}},
@@ -208,7 +228,12 @@ def test_iter_max_pages_zero_rejected():
 
 def test_iter_serial_numbers_yields_records():
     payload = {
-        "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 1, "TotalRecords": 1, "PageRecords": 1},
+        "PaginationResponseRecord": {
+            "PageIndex": 1,
+            "LastIndex": 1,
+            "TotalRecords": 1,
+            "PageRecords": 1,
+        },
         "EOXRecord": [{"EOLProductID": "S1"}],
     }
 
@@ -221,7 +246,12 @@ def test_iter_serial_numbers_yields_records():
 
 def test_iter_software_releases_yields_records():
     payload = {
-        "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 1, "TotalRecords": 1, "PageRecords": 1},
+        "PaginationResponseRecord": {
+            "PageIndex": 1,
+            "LastIndex": 1,
+            "TotalRecords": 1,
+            "PageRecords": 1,
+        },
         "EOXRecord": [{"EOLProductID": "SW1"}],
     }
 
@@ -229,7 +259,9 @@ def test_iter_software_releases_yields_records():
         return httpx.Response(200, json=payload)
 
     client = _client(handler)
-    assert [r.eol_product_id for r in client.iter_software_releases(("12.4(15)T", "IOS"))] == ["SW1"]
+    assert [r.eol_product_id for r in client.iter_software_releases(("12.4(15)T", "IOS"))] == [
+        "SW1"
+    ]
 
 
 def test_string_release_format_succeeds():
@@ -259,7 +291,12 @@ def test_iter_missing_last_index_returns_page_1():
 
 def test_iter_last_index_zero_returns_page_1():
     payload = {
-        "PaginationResponseRecord": {"PageIndex": 1, "LastIndex": 0, "TotalRecords": 1, "PageRecords": 1},
+        "PaginationResponseRecord": {
+            "PageIndex": 1,
+            "LastIndex": 0,
+            "TotalRecords": 1,
+            "PageRecords": 1,
+        },
         "EOXRecord": [{"EOLProductID": "P1"}],
     }
 

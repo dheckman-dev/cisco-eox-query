@@ -44,6 +44,7 @@ Issues = "https://github.com/dheckman-dev/cisco-eox-query/issues"
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
+    "ruff>=0.16.7",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -77,3 +78,24 @@ branch = true
 [tool.coverage.report]
 fail_under = 80
 show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+  "C4",   # flake8-comprehensions
+  "RUF",  # ruff-specific rules
+]
+
+[tool.ruff.format]
+quote-style = "double"

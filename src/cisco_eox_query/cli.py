@@ -8,8 +8,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 import httpx
 
@@ -63,8 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="eox-query",
         description="Query the Cisco End-of-Life (EOX) API.",
-        epilog=format_epilog(ROOT_EXAMPLES)
-        + "\n\nRun 'eox-query --examples' for more examples.",
+        epilog=format_epilog(ROOT_EXAMPLES) + "\n\nRun 'eox-query --examples' for more examples.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -150,7 +148,9 @@ def build_parser() -> argparse.ArgumentParser:
         title="Examples for 'software'",
         help="show usage examples and exit",
     )
-    software.add_argument("releases", nargs="+", help="SWversion[,OSType] tuples, e.g. 12.4(15)T,IOS")
+    software.add_argument(
+        "releases", nargs="+", help="SWversion[,OSType] tuples, e.g. 12.4(15)T,IOS"
+    )
 
     dates = subparsers.add_parser(
         "dates",
@@ -211,7 +211,9 @@ def _build_client(args: argparse.Namespace) -> EOXClient:
     if args.access_token:
         return EOXClient(access_token=args.access_token, timeout=args.timeout)
     if args.client_id and args.client_secret:
-        return EOXClient(client_id=args.client_id, client_secret=args.client_secret, timeout=args.timeout)
+        return EOXClient(
+            client_id=args.client_id, client_secret=args.client_secret, timeout=args.timeout
+        )
     raise ValueError(
         "credentials required: --client-id and --client-secret "
         "(or EOX_CLIENT_ID/EOX_CLIENT_SECRET), or --access-token"
@@ -236,13 +238,15 @@ def _collect(request_fn, *args, **kwargs) -> list[EOXRecord]:
     page = 1
     while True:
         if page > DEFAULT_MAX_PAGES:
-            raise PaginationError(
-                f"pagination did not terminate after {DEFAULT_MAX_PAGES} pages"
-            )
+            raise PaginationError(f"pagination did not terminate after {DEFAULT_MAX_PAGES} pages")
         response = request_fn(*args, page=page, **kwargs)
         response.raise_for_error()
         records.extend(response.records)
-        last = response.pagination.last_index if response.pagination and response.pagination.last_index else 1
+        last = (
+            response.pagination.last_index
+            if response.pagination and response.pagination.last_index
+            else 1
+        )
         if page >= last:
             return records
         page += 1

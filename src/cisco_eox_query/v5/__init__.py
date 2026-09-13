@@ -14,13 +14,13 @@ from cisco_eox_query.v5.models import (
 )
 
 __all__ = [
-    "EOXClient",
+    "EOX_ATTRIBS",
+    "OS_TYPES",
     "EOXAPIError",
+    "EOXClient",
     "EOXErrorInfo",
     "EOXRecord",
     "EOXResponse",
     "MigrationDetails",
     "PaginationResponseRecord",
-    "EOX_ATTRIBS",
-    "OS_TYPES",
 ]
