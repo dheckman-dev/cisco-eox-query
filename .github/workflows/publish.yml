@@ -37,6 +37,9 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
+      - name: Clean dist
+        run: rm -rf dist
+
       - name: Build distributions
         run: uv build
 
@@ -45,6 +48,10 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
+          # Disable attestations here: since v1.11.0 the action generates
+          # PEP 740 attestations by default, which would leave stale
+          # .publish.attestation files in dist/ and break the PyPI step below.
+          attestations: false
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
