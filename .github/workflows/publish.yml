@@ -16,6 +16,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      publish-to-pypi:
+        description: "Publish to production PyPI (unchecked = TestPyPI only)"
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -54,6 +60,7 @@ jobs:
           attestations: false
 
       - name: Publish to PyPI
+        if: ${{ github.event_name == 'push' || inputs.publish-to-pypi }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           attestations: true
