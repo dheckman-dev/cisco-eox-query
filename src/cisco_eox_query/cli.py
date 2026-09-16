@@ -8,7 +8,9 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 import httpx
 
@@ -20,6 +22,7 @@ from cisco_eox_query import (
     RateLimitError,
     RetryError,
     __version__,
+    export_to_csv,
 )
 from cisco_eox_query.constants import DEFAULT_MAX_PAGES
 from cisco_eox_query.examples import (
@@ -89,6 +92,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="pre-obtained bearer token (or EOX_ACCESS_TOKEN)",
     )
     parser.add_argument("--timeout", type=float, default=30.0, help="request timeout in seconds")
+    parser.add_argument(
+        "--export",
+        choices=["csv"],
+        help="export results as CSV instead of text",
+    )
+    parser.add_argument(
+        "--output-file",
+        type=Path,
+        help="write output to this file instead of stdout (requires --export csv)",
+    )
     parser.add_argument(
         "-v",
         "--verbose",
@@ -190,10 +203,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     setup_logging(_log_level(args.verbose))
     try:
+        if args.output_file and args.export != "csv":
+            raise ValueError("--output-file requires --export csv")
         with _build_client(args) as client:
             records = _dispatch(client, args)
-        for record in records:
-            _print_record(record)
+        if args.export == "csv":
+            if args.output_file:
+                export_to_csv(records, output=args.output_file)
+            else:
+                export_to_csv(records, output=sys.stdout)
+        else:
+            for record in records:
+                _print_record(record)
         if records:
             logger.info("found %d EOX record(s)", len(records))
         else:

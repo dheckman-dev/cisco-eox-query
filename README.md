@@ -67,6 +67,52 @@ If you already hold a token:
 client = EOXClient(access_token="...")
 ```
 
+### CSV export
+
+Records from any `search_*` or `iter_*` call can be serialized to CSV with
+`export_to_csv`. The header row is always written, even for an empty result
+set. Columns follow the flattened schema: the 15 top-level `EOXRecord` fields
+plus seven `Migration*` columns from `migration_details`. The `QueryType`
+column holds the normalized query type (one of `queried_product_id`,
+`queried_serial`, `queried_software`, `queried_dates`) rather than the raw API
+echo. `date` values are written in ISO-8601 format; `None` becomes an empty
+cell.
+
+```python
+from cisco_eox_query import EOXClient, export_to_csv
+
+with EOXClient(client_id="...", client_secret="...") as client:
+    records = list(client.iter_product_ids(["WS-C2960X-48TS-L"]))
+    csv_text = export_to_csv(records)  # CSV text as a str
+    export_to_csv(records, output="eox.csv")  # write a UTF-8 CSV file
+```
+
+With `output=None` (the default) the CSV text is returned. Passing a path
+writes a UTF-8 file; passing a file-like object writes to it directly. An
+empty `records` list still produces a document with just the header row.
+
+Exported cells contain API data verbatim. Cells beginning with a spreadsheet
+formula trigger (`=`, `+`, `-`, `@`) could be interpreted as formulas if the
+CSV is opened in Excel, LibreOffice, or Google Sheets, so treat exported CSVs
+as untrusted data when opening them in a spreadsheet.
+
+### Query types
+
+`EOXRecord.eox_input_type` is normalized to one of four stable values:
+
+| Normalized | Raw API echo |
+| --- | --- |
+| `queried_product_id` | `ShowEOXByPids` |
+| `queried_serial` | `ShowEOXBySerialNumber` |
+| `queried_software` | `ShowEOXBySoftware` |
+| `queried_dates` | `showEoXByDates` |
+
+Raw API echo values are matched case-insensitively; unknown values pass
+through unchanged. `cisco_eox_query.QUERY_TYPES` exports the set of normalized
+values and can be used as a reference for relational DB schema constraints.
+The discriminator is useful when merging records from multiple query methods
+(e.g. building relational tables keyed by product_id / serial / software).
+
 ## Command line
 
 The package installs an `eox-query` console script. Credentials may be passed
@@ -78,6 +124,15 @@ eox-query --client-id ... --client-secret ... pid WS-C2960X-48TS-L WIC-1T=
 eox-query --client-id ... --client-secret ... serial JAE11108ESH SAD11510738
 eox-query --client-id ... --client-secret ... software 12.4\(15\)T,IOS
 eox-query --client-id ... --client-secret ... dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE
+```
+
+Results can be exported as CSV with `--export csv`. Without `--output-file`
+the CSV is written to stdout; with `--output-file PATH` it is written to the
+given file instead. `--output-file` requires `--export csv`.
+
+```bash
+eox-query --client-id ... --client-secret ... --export csv pid WS-C2960X-48TS-L
+eox-query --client-id ... --client-secret ... --export csv --output-file eox.csv pid WS-C2960X-48TS-L
 ```
 
 Run `eox-query --examples` for annotated usage examples, or

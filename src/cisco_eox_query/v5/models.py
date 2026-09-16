@@ -7,6 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from cisco_eox_query.v5.constants import EOX_INPUT_TYPE_ALIASES
+
 
 def _is_blank(value: Any) -> bool:
     return isinstance(value, str) and not value.strip()
@@ -73,6 +75,14 @@ class EOXRecord(BaseModel):
         if isinstance(value, dict) and set(value) <= {"value", "dateFormat"}:
             value = value.get("value")
         return None if _is_blank(value) else value
+
+    @field_validator("eox_input_type", mode="before")
+    @classmethod
+    def _normalise_input_type(cls, value: Any) -> Any:
+        if value is None or not isinstance(value, str):
+            return value
+        normalized = "".join(char for char in value.lower() if char.isalnum())
+        return EOX_INPUT_TYPE_ALIASES.get(normalized, value)
 
 
 class PaginationResponseRecord(BaseModel):

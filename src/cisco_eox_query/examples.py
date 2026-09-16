@@ -33,6 +33,14 @@ ROOT_EXAMPLES: list[Example] = [
         "Use environment variables for credentials",
         "EOX_CLIENT_ID=ID EOX_CLIENT_SECRET=SECRET eox-query pid WS-C2960X-48TS-L",
     ),
+    (
+        "Export results as CSV",
+        "eox-query --client-id ID --client-secret SECRET --export csv pid WS-C2960X-48TS-L",
+    ),
+    (
+        "Export results to a CSV file",
+        "eox-query --client-id ID --client-secret SECRET --export csv --output-file eox.csv pid WS-C2960X-48TS-L",  # noqa: E501
+    ),
 ]
 
 COMMAND_EXAMPLES: dict[str, list[Example]] = {
@@ -52,6 +60,10 @@ COMMAND_EXAMPLES: dict[str, list[Example]] = {
         (
             "Use a pre-obtained access token",
             "eox-query --access-token TOKEN pid WS-C2960X-48TS-L",
+        ),
+        (
+            "Export results as CSV",
+            "eox-query --client-id ID --client-secret SECRET --export csv pid WS-C2960X-48TS-L",
         ),
     ],
     "serial": [

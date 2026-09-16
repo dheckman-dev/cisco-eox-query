@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from cisco_eox_query.v5.client import EOXClient
-from cisco_eox_query.v5.constants import EOX_ATTRIBS, OS_TYPES
+from cisco_eox_query.v5.constants import EOX_ATTRIBS, EOX_INPUT_TYPE_ALIASES, OS_TYPES, QUERY_TYPES
 from cisco_eox_query.v5.models import (
     EOXAPIError,
     EOXErrorInfo,
@@ -15,7 +15,9 @@ from cisco_eox_query.v5.models import (
 
 __all__ = [
     "EOX_ATTRIBS",
+    "EOX_INPUT_TYPE_ALIASES",
     "OS_TYPES",
+    "QUERY_TYPES",
     "EOXAPIError",
     "EOXClient",
     "EOXErrorInfo",
