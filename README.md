@@ -73,8 +73,8 @@ Records from any `search_*` or `iter_*` call can be serialized to CSV with
 `export_to_csv`. The header row is always written, even for an empty result
 set. Columns follow the flattened schema: the 15 top-level `EOXRecord` fields
 plus seven `Migration*` columns from `migration_details`. The `QueryType`
-column holds the normalized query type (one of `queried_product_id`,
-`queried_serial`, `queried_software`, `queried_dates`) rather than the raw API
+column holds the normalized query type (one of `product_id`,
+`serial`, `software`, `dates`) rather than the raw API
 echo. `date` values are written in ISO-8601 format; `None` becomes an empty
 cell.
 
@@ -102,10 +102,10 @@ as untrusted data when opening them in a spreadsheet.
 
 | Normalized | Raw API echo |
 | --- | --- |
-| `queried_product_id` | `ShowEOXByPids` |
-| `queried_serial` | `ShowEOXBySerialNumber` |
-| `queried_software` | `ShowEOXBySoftware` |
-| `queried_dates` | `showEoXByDates` |
+| `product_id` | `ShowEOXByPids` |
+| `serial` | `ShowEOXBySerialNumber` |
+| `software` | `ShowEOXBySoftware` |
+| `dates` | `showEoXByDates` |
 
 Raw API echo values are matched case-insensitively; unknown values pass
 through unchanged. `cisco_eox_query.QUERY_TYPES` exports the set of normalized

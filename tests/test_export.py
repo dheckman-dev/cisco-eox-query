@@ -33,7 +33,7 @@ def test_csv_header_uses_query_type():
 def test_csv_query_type_column_contains_normalized_value(eox_record_payload):
     record = EOXRecord.model_validate(eox_record_payload)
     row = _rows(export_to_csv([record]))[1]
-    assert row[_column_index("QueryType")] == "queried_product_id"
+    assert row[_column_index("QueryType")] == "product_id"
 
 
 def test_full_record_row(eox_record_payload):
@@ -43,7 +43,7 @@ def test_full_record_row(eox_record_payload):
     assert row[_column_index("EndOfSaleDate")] == "2009-12-28"
     assert row[_column_index("MigrationProductId")] == "HWIC-1T="
     assert row[_column_index("MigrationProductInfoURL")] == "https://www.cisco.com"
-    assert row[_column_index("QueryType")] == "queried_product_id"
+    assert row[_column_index("QueryType")] == "product_id"
 
 
 def test_none_values_serialize_as_empty_cells():

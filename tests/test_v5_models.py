@@ -95,12 +95,12 @@ def test_string_pagination_fields_coerced_to_int():
 @pytest.mark.parametrize(
     ("raw_input_type", "expected"),
     [
-        ("ShowEOXByPids", "queried_product_id"),
-        ("ShowEOXByProductID", "queried_product_id"),
-        ("ShowEOXBySerialNumber", "queried_serial"),
-        ("showEoXByDates", "queried_dates"),
-        ("ShowEOXBySoftware", "queried_software"),
-        ("ShowEOXBySWReleaseString", "queried_software"),
+        ("ShowEOXByPids", "product_id"),
+        ("ShowEOXByProductID", "product_id"),
+        ("ShowEOXBySerialNumber", "serial"),
+        ("showEoXByDates", "dates"),
+        ("ShowEOXBySoftware", "software"),
+        ("ShowEOXBySWReleaseString", "software"),
     ],
 )
 def test_eox_input_type_normalized(raw_input_type, expected):
@@ -125,8 +125,8 @@ def test_eox_input_type_non_string_raises_validation_error():
 
 def test_query_types_constant():
     assert {
-        "queried_product_id",
-        "queried_serial",
-        "queried_software",
-        "queried_dates",
+        "product_id",
+        "serial",
+        "software",
+        "dates",
     } == QUERY_TYPES

@@ -50,7 +50,7 @@ def export_to_csv(
 
     - The first 15 columns map directly to ``EOXRecord`` fields; the
       ``QueryType`` column holds the normalized query type
-      (e.g. ``queried_product_id``).
+      (e.g. ``product_id``).
     - The seven ``Migration*`` columns map to ``record.migration_details``;
       they are empty cells when ``migration_details`` is ``None``.
 
