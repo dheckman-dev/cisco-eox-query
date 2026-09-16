@@ -10,12 +10,12 @@ ResponseEncoding = Literal["json", "xml"]
 SoftwareRelease = tuple[str, str] | str
 
 EOX_INPUT_TYPE_ALIASES: dict[str, str] = {
-    "showeoxbypids": "queried_product_id",
-    "showeoxbyproductid": "queried_product_id",
-    "showeoxbyserialnumber": "queried_serial",
-    "showeoxbydates": "queried_dates",
-    "showeoxbysoftware": "queried_software",
-    "showeoxbyswreleasestring": "queried_software",
+    "showeoxbypids": "product_id",
+    "showeoxbyproductid": "product_id",
+    "showeoxbyserialnumber": "serial",
+    "showeoxbydates": "dates",
+    "showeoxbysoftware": "software",
+    "showeoxbyswreleasestring": "software",
 }
 
 QUERY_TYPES: frozenset[str] = frozenset(EOX_INPUT_TYPE_ALIASES.values())
