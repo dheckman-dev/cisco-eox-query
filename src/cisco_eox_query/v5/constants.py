@@ -9,6 +9,17 @@ MAX_INPUTS = 20
 ResponseEncoding = Literal["json", "xml"]
 SoftwareRelease = tuple[str, str] | str
 
+EOX_INPUT_TYPE_ALIASES: dict[str, str] = {
+    "showeoxbypids": "product_id",
+    "showeoxbyproductid": "product_id",
+    "showeoxbyserialnumber": "serial",
+    "showeoxbydates": "dates",
+    "showeoxbysoftware": "software",
+    "showeoxbyswreleasestring": "software",
+}
+
+QUERY_TYPES: frozenset[str] = frozenset(EOX_INPUT_TYPE_ALIASES.values())
+
 EOX_ATTRIBS = frozenset(
     {
         "EO_EXT_ANNOUNCE_DATE",
@@ -66,8 +77,10 @@ OS_TYPES = frozenset(
 
 __all__ = [
     "EOX_ATTRIBS",
+    "EOX_INPUT_TYPE_ALIASES",
     "MAX_INPUTS",
     "OS_TYPES",
+    "QUERY_TYPES",
     "ResponseEncoding",
     "SoftwareRelease",
 ]

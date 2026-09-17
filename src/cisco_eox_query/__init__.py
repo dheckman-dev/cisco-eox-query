@@ -18,9 +18,12 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version
 
 from cisco_eox_query._base import PaginationError, RateLimitError, RetryError
+from cisco_eox_query.export import export_to_csv
 from cisco_eox_query.v5 import (
     EOX_ATTRIBS,
+    EOX_INPUT_TYPE_ALIASES,
     OS_TYPES,
+    QUERY_TYPES,
     EOXAPIError,
     EOXClient,
     EOXErrorInfo,
@@ -33,13 +36,15 @@ from cisco_eox_query.v5 import (
 try:
     __version__ = version("cisco-eox-query")
 except PackageNotFoundError:
-    __version__ = "1.0.0"
+    __version__ = "1.2.0"
 
 SUPPORTED_API_VERSION = 5
 
 __all__ = [
     "EOX_ATTRIBS",
+    "EOX_INPUT_TYPE_ALIASES",
     "OS_TYPES",
+    "QUERY_TYPES",
     "SUPPORTED_API_VERSION",
     "EOXAPIError",
     "EOXClient",
@@ -52,4 +57,5 @@ __all__ = [
     "RateLimitError",
     "RetryError",
     "__version__",
+    "export_to_csv",
 ]

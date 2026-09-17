@@ -283,3 +283,63 @@ def test_format_examples():
 def test_format_epilog():
     text = cli.format_epilog([("Query a product", "eox-query pid WIC-1T=")])
     assert text == "examples:\n  eox-query pid WIC-1T="
+
+
+def test_main_export_csv_prints_header_and_record(monkeypatch, capsys, eox_response_payload):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(eox_response_payload))
+    assert cli.main(["--access-token", "t", "--export", "csv", "pid", "WIC-1T="]) == 0
+    out = capsys.readouterr().out
+    assert "EOLProductID" in out
+    assert "WIC-1T=" in out
+
+
+def test_main_export_csv_output_file(monkeypatch, capsys, eox_response_payload, tmp_path):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(eox_response_payload))
+    target = tmp_path / "out.csv"
+    assert (
+        cli.main(
+            [
+                "--access-token",
+                "t",
+                "--export",
+                "csv",
+                "--output-file",
+                str(target),
+                "pid",
+                "WIC-1T=",
+            ]
+        )
+        == 0
+    )
+    content = target.read_text(encoding="utf-8")
+    assert "EOLProductID" in content
+    assert "WIC-1T=" in content
+    assert "EOLProductID" not in capsys.readouterr().out
+
+
+def test_main_output_file_requires_export_csv(monkeypatch, caplog, tmp_path):
+    target = tmp_path / "out.csv"
+    assert cli.main(["--access-token", "t", "--output-file", str(target), "pid", "WIC-1T="]) == 1
+    assert "--output-file requires --export csv" in caplog.text
+
+
+def test_main_export_invalid_choice_raises_system_exit(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--access-token", "t", "--export", "json", "pid", "WIC-1T="])
+    assert exc_info.value.code == 2
+
+
+def test_main_export_csv_formula_trigger_value_verbatim(monkeypatch, capsys):
+    payload = {"EOXRecord": [{"EOLProductID": "WIC-1T=", "EOXInputValue": "=2+2"}]}
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(payload))
+    assert cli.main(["--access-token", "t", "--export", "csv", "pid", "WIC-1T="]) == 0
+    out = capsys.readouterr().out
+    assert "=2+2" in out
+
+
+def test_main_export_csv_empty_results_prints_header(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient({"EOXRecord": []}))
+    assert cli.main(["--access-token", "t", "--export", "csv", "pid", "WIC-1T="]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("EOLProductID")
+    assert "WIC-1T=" not in out

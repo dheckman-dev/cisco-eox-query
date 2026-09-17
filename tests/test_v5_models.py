@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 
-from cisco_eox_query.v5.models import EOXAPIError, EOXResponse
+from cisco_eox_query.v5.constants import QUERY_TYPES
+from cisco_eox_query.v5.models import EOXAPIError, EOXRecord, EOXResponse
 
 
 def test_parse_full_response(eox_response_payload):
@@ -88,3 +90,43 @@ def test_string_pagination_fields_coerced_to_int():
     assert response.pagination.last_index == 2
     assert response.pagination.total_records == 2
     assert response.pagination.page_records == 1
+
+
+@pytest.mark.parametrize(
+    ("raw_input_type", "expected"),
+    [
+        ("ShowEOXByPids", "product_id"),
+        ("ShowEOXByProductID", "product_id"),
+        ("ShowEOXBySerialNumber", "serial"),
+        ("showEoXByDates", "dates"),
+        ("ShowEOXBySoftware", "software"),
+        ("ShowEOXBySWReleaseString", "software"),
+    ],
+)
+def test_eox_input_type_normalized(raw_input_type, expected):
+    record = EOXRecord.model_validate({"EOXInputType": raw_input_type})
+    assert record.eox_input_type == expected
+
+
+def test_eox_input_type_unknown_falls_back():
+    record = EOXRecord.model_validate({"EOXInputType": "ShowEOXBySomethingNew"})
+    assert record.eox_input_type == "ShowEOXBySomethingNew"
+
+
+def test_eox_input_type_blank_becomes_none():
+    record = EOXRecord.model_validate({"EOXInputType": " "})
+    assert record.eox_input_type is None
+
+
+def test_eox_input_type_non_string_raises_validation_error():
+    with pytest.raises(ValidationError):
+        EOXRecord.model_validate({"EOXInputType": 123})
+
+
+def test_query_types_constant():
+    assert {
+        "product_id",
+        "serial",
+        "software",
+        "dates",
+    } == QUERY_TYPES
