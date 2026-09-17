@@ -23,6 +23,7 @@ from cisco_eox_query import (
     RetryError,
     __version__,
     export_to_csv,
+    export_to_xlsx,
 )
 from cisco_eox_query.constants import DEFAULT_MAX_PAGES
 from cisco_eox_query.examples import (
@@ -94,13 +95,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timeout", type=float, default=30.0, help="request timeout in seconds")
     parser.add_argument(
         "--export",
-        choices=["csv"],
-        help="export results as CSV instead of text",
+        choices=["csv", "xlsx"],
+        help="export results as CSV or Excel (.xlsx) instead of text",
     )
     parser.add_argument(
         "--output-file",
         type=Path,
-        help="write output to this file instead of stdout (requires --export csv)",
+        help="write output to this file instead of stdout (requires --export csv or --export xlsx)",
     )
     parser.add_argument(
         "-v",
@@ -203,8 +204,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     setup_logging(_log_level(args.verbose))
     try:
-        if args.output_file and args.export != "csv":
-            raise ValueError("--output-file requires --export csv")
+        if args.output_file and args.export not in ("csv", "xlsx"):
+            raise ValueError("--output-file requires --export csv or --export xlsx")
+        if args.export == "xlsx" and not args.output_file:
+            raise ValueError("--export xlsx requires --output-file")
         with _build_client(args) as client:
             records = _dispatch(client, args)
         if args.export == "csv":
@@ -212,6 +215,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 export_to_csv(records, output=args.output_file)
             else:
                 export_to_csv(records, output=sys.stdout)
+        elif args.export == "xlsx":
+            export_to_xlsx(records, output=args.output_file)
         else:
             for record in records:
                 _print_record(record)
