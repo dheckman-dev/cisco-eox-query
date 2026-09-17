@@ -231,6 +231,42 @@ def test_xlsx_formula_trigger_values_are_text_not_formulas():
         assert cell.value == expected
 
 
+def test_xlsx_control_characters_are_stripped():
+    record = EOXRecord.model_validate(
+        {
+            "EOLProductID": "WIC-1T=",
+            "ProductIDDescription": "bad\x00text\x1f",
+        }
+    )
+    sheet = _load_sheet([record])
+    assert _cell_value(sheet, "ProductIDDescription") == "badtext"
+
+
+def test_xlsx_error_code_strings_are_text():
+    record = EOXRecord.model_validate(
+        {
+            "EOLProductID": "WIC-1T=",
+            "ProductIDDescription": "#REF!",
+        }
+    )
+    sheet = _load_sheet([record])
+    cell = sheet.cell(row=2, column=_column_index("ProductIDDescription") + 1)
+    assert cell.data_type == "s"
+    assert cell.value == "#REF!"
+
+
+def test_xlsx_empty_string_cell_is_text():
+    record = EOXRecord.model_validate(
+        {
+            "EOLProductID": "WIC-1T=",
+            "ProductIDDescription": "",
+        }
+    )
+    sheet = _load_sheet([record])
+    cell = sheet.cell(row=2, column=_column_index("ProductIDDescription") + 1)
+    assert cell.value is None or cell.data_type == "s"
+
+
 def test_xlsx_empty_records_only_header():
     sheet = _load_sheet([])
     assert sheet.max_row == 1

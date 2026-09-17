@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import BinaryIO, TextIO
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.worksheet.worksheet import Worksheet
 
 from cisco_eox_query.v5.models import EOXRecord
@@ -38,6 +39,10 @@ EXPORT_COLUMNS: tuple[str, ...] = (
     "MigrationProductName",
     "MigrationStrategy",
     "MigrationProductInfoURL",
+)
+
+EXCEL_ERROR_CODES: frozenset[str] = frozenset(
+    ("#NULL!", "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#NUM!", "#N/A")
 )
 
 CSV_COLUMNS: tuple[str, ...] = EXPORT_COLUMNS
@@ -160,14 +165,21 @@ def _write_xlsx_row(
 
     ``None`` values are left unset (empty cells). ``date`` values are
     assigned directly so openpyxl emits real Excel date cells. String values
-    that could be interpreted as formulas are forced to text via
-    :attr:`~openpyxl.cell.cell.Cell.data_type` so they round-trip verbatim.
+    are stripped of illegal control characters before assignment so they never
+    trigger :class:`~openpyxl.utils.exceptions.IllegalCharacterError`. Values
+    that could be interpreted as formulas or as Excel error codes are forced
+    to text via :attr:`~openpyxl.cell.cell.Cell.data_type` so they round-trip
+    verbatim.
     """
     for column_index, value in enumerate(values, start=1):
         if value is None:
             continue
+        if isinstance(value, str):
+            value = ILLEGAL_CHARACTERS_RE.sub("", value)
         cell = worksheet.cell(row=row_index, column=column_index, value=value)
-        if isinstance(value, str) and value[:1] in "=+-@":
+        if isinstance(value, str) and (
+            (value and value[0] in "=+-@") or value in EXCEL_ERROR_CODES
+        ):
             cell.data_type = "s"
 
 
