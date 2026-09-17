@@ -96,6 +96,31 @@ formula trigger (`=`, `+`, `-`, `@`) could be interpreted as formulas if the
 CSV is opened in Excel, LibreOffice, or Google Sheets, so treat exported CSVs
 as untrusted data when opening them in a spreadsheet.
 
+### Excel export
+
+Records can also be serialized to an Excel workbook with `export_to_xlsx`. It
+uses the same flattened column schema as `export_to_csv` (the 15 top-level
+`EOXRecord` fields plus seven `Migration*` columns) and always writes the
+header row, even for an empty result set. Data types are enforced: `date`
+fields become real Excel date cells, strings are text cells, and `None`
+becomes an empty cell. As a defense against formula injection, string values
+starting with `=`, `+`, `-`, or `@` are written as literal text, never as
+formulas.
+
+```python
+from cisco_eox_query import EOXClient, export_to_xlsx
+
+with EOXClient(client_id="...", client_secret="...") as client:
+    records = list(client.iter_product_ids(["WS-C2960X-48TS-L"]))
+    xlsx_bytes = export_to_xlsx(records)  # workbook bytes
+    export_to_xlsx(records, output="eox.xlsx")  # write an .xlsx file
+```
+
+With `output=None` (the default) the workbook bytes are returned. Passing a
+path writes an `.xlsx` file; passing a binary file-like object writes to it
+directly. An empty `records` list still produces a workbook with just the
+header row.
+
 ### Query types
 
 `EOXRecord.eox_input_type` is normalized to one of four stable values:
@@ -126,13 +151,16 @@ eox-query --client-id ... --client-secret ... software 12.4\(15\)T,IOS
 eox-query --client-id ... --client-secret ... dates 2011-01-01 2015-12-31 --attribs EO_SALES_DATE
 ```
 
-Results can be exported as CSV with `--export csv`. Without `--output-file`
-the CSV is written to stdout; with `--output-file PATH` it is written to the
-given file instead. `--output-file` requires `--export csv`.
+Results can be exported as CSV or Excel with `--export csv|xlsx`. Without
+`--output-file` the CSV is written to stdout; with `--output-file PATH` it is
+written to the given file instead. `--output-file` requires `--export csv` or
+`--export xlsx`, and `--export xlsx` requires `--output-file` (binary output
+is never written to stdout).
 
 ```bash
 eox-query --client-id ... --client-secret ... --export csv pid WS-C2960X-48TS-L
 eox-query --client-id ... --client-secret ... --export csv --output-file eox.csv pid WS-C2960X-48TS-L
+eox-query --client-id ... --client-secret ... --export xlsx --output-file eox.xlsx pid WS-C2960X-48TS-L
 ```
 
 Run `eox-query --examples` for annotated usage examples, or
