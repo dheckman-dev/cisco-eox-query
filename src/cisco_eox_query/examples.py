@@ -41,6 +41,10 @@ ROOT_EXAMPLES: list[Example] = [
         "Export results to a CSV file",
         "eox-query --client-id ID --client-secret SECRET --export csv --output-file eox.csv pid WS-C2960X-48TS-L",  # noqa: E501
     ),
+    (
+        "Export results to an Excel file",
+        "eox-query --client-id ID --client-secret SECRET --export xlsx --output-file eox.xlsx pid WS-C2960X-48TS-L",  # noqa: E501
+    ),
 ]
 
 COMMAND_EXAMPLES: dict[str, list[Example]] = {
@@ -64,6 +68,10 @@ COMMAND_EXAMPLES: dict[str, list[Example]] = {
         (
             "Export results as CSV",
             "eox-query --client-id ID --client-secret SECRET --export csv pid WS-C2960X-48TS-L",
+        ),
+        (
+            "Export results to an Excel file",
+            "eox-query --client-id ID --client-secret SECRET --export xlsx --output-file eox.xlsx pid WS-C2960X-48TS-L",  # noqa: E501
         ),
     ],
     "serial": [
