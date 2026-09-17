@@ -121,6 +121,22 @@ path writes an `.xlsx` file; passing a binary file-like object writes to it
 directly. An empty `records` list still produces a workbook with just the
 header row.
 
+Lifecycle date cells are highlighted automatically (no flag needed; always on
+for xlsx). Only the seven lifecycle date columns are highlighted —
+`EndOfSaleDate`, `EndOfSWMaintenanceReleases`, `EndOfSecurityVulSupportDate`,
+`EndOfRoutineFailureAnalysisDate`, `EndOfServiceContractRenewal`,
+`LastDateOfSupport`, and `EndOfSvcAttachDate`. The metadata date columns
+(`EOXExternalAnnouncementDate`, `UpdatedTimeStamp`) and all non-date columns
+are never highlighted. Relative to the export date (`date.today()`):
+
+- Past dates → solid black fill with white font (product is dead).
+- Today → solid red.
+- 365+ days out → solid green.
+- Between 0 and 365 days → a red→yellow→green gradient (red at 0 days,
+  green at 365 days).
+
+This makes EoL/EoSL/EoSS concerns easy to spot at a glance.
+
 ### Query types
 
 `EOXRecord.eox_input_type` is normalized to one of four stable values:
