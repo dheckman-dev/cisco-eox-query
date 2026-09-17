@@ -36,7 +36,7 @@ from cisco_eox_query.v5 import (
 try:
     __version__ = version("cisco-eox-query")
 except PackageNotFoundError:
-    __version__ = "1.2.0"
+    __version__ = "1.2.1"
 
 SUPPORTED_API_VERSION = 5
 

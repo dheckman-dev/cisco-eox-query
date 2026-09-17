@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cisco-eox-query"
-version = "1.2.0"
+version = "1.2.1"
 description = "Python client for the Cisco End-of-Life (EOX) API"
 readme = "README.md"
 authors = [
