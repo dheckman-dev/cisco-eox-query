@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import date, datetime
+
+from openpyxl import load_workbook
 
 import cisco_eox_query
 from cisco_eox_query import export_to_csv
-from cisco_eox_query.export import CSV_COLUMNS
+from cisco_eox_query.export import CSV_COLUMNS, EXPORT_COLUMNS, export_to_xlsx
 from cisco_eox_query.v5.models import EOXRecord
 
 
@@ -137,3 +140,144 @@ def test_output_filelike_writes_and_does_not_close(eox_record_payload):
 def test_export_to_csv_in_package_root():
     assert cisco_eox_query.export_to_csv is export_to_csv
     assert "export_to_csv" in cisco_eox_query.__all__
+
+
+def _load_sheet(records):
+    data = export_to_xlsx(records)
+    return load_workbook(io.BytesIO(data)).active
+
+
+def _cell_value(sheet, name):
+    return sheet.cell(row=2, column=_column_index(name) + 1).value
+
+
+def _read_row(sheet, row=1):
+    return [
+        sheet.cell(row=row, column=column).value for column in range(1, len(EXPORT_COLUMNS) + 1)
+    ]
+
+
+def test_xlsx_header_row_matches_export_columns(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    sheet = _load_sheet([record])
+    assert _read_row(sheet) == list(EXPORT_COLUMNS)
+
+
+def test_xlsx_date_cells_are_real_dates(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    sheet = _load_sheet([record])
+    for column, expected in (
+        ("EndOfSaleDate", date(2009, 12, 28)),
+        ("LastDateOfSupport", date(2014, 12, 27)),
+    ):
+        cell = sheet.cell(row=2, column=_column_index(column) + 1)
+        assert cell.value is not None
+        if isinstance(cell.value, datetime):
+            assert cell.value.date() == expected
+        else:
+            assert cell.value == expected
+        assert "yy" in cell.number_format.lower()
+
+
+def test_xlsx_string_cells_are_text(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    sheet = _load_sheet([record])
+    cell = sheet.cell(row=2, column=_column_index("EOLProductID") + 1)
+    assert cell.value == "WIC-1T="
+    assert cell.data_type == "s"
+
+
+def test_xlsx_none_values_are_empty_cells():
+    record = EOXRecord.model_validate({"EOLProductID": "WIC-1T="})
+    sheet = _load_sheet([record])
+    assert _cell_value(sheet, "EOLProductID") == "WIC-1T="
+    for column in EXPORT_COLUMNS[1:]:
+        assert sheet.cell(row=2, column=_column_index(column) + 1).value is None
+
+
+def test_xlsx_migration_details_mapping(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    sheet = _load_sheet([record])
+    assert _cell_value(sheet, "MigrationProductId") == "HWIC-1T="
+    assert _cell_value(sheet, "MigrationProductInfoURL") == "https://www.cisco.com"
+
+
+def test_xlsx_query_type_column_normalized(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    sheet = _load_sheet([record])
+    assert _cell_value(sheet, "QueryType") == "product_id"
+
+
+def test_xlsx_formula_trigger_values_are_text_not_formulas():
+    record = EOXRecord.model_validate(
+        {
+            "EOLProductID": "+1+2",
+            "ProductIDDescription": "=1+2",
+            "ProductBulletinNumber": "-1+2",
+            "LinkToProductBulletinURL": "@SUM(1,2)",
+            "EOXInputValue": '=HYPERLINK("http://evil.example")',
+        }
+    )
+    sheet = _load_sheet([record])
+    for column, expected in (
+        ("EOLProductID", "+1+2"),
+        ("ProductIDDescription", "=1+2"),
+        ("ProductBulletinNumber", "-1+2"),
+        ("LinkToProductBulletinURL", "@SUM(1,2)"),
+        ("EOXInputValue", '=HYPERLINK("http://evil.example")'),
+    ):
+        cell = sheet.cell(row=2, column=_column_index(column) + 1)
+        assert cell.data_type == "s"
+        assert cell.value == expected
+
+
+def test_xlsx_empty_records_only_header():
+    sheet = _load_sheet([])
+    assert sheet.max_row == 1
+    assert _read_row(sheet) == list(EXPORT_COLUMNS)
+
+
+def test_xlsx_output_none_returns_bytes(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    data = export_to_xlsx([record])
+    assert isinstance(data, bytes)
+    assert data.startswith(b"PK")
+
+
+def test_xlsx_output_path_writes_valid_workbook(eox_record_payload, tmp_path):
+    record = EOXRecord.model_validate(eox_record_payload)
+    target = tmp_path / "out.xlsx"
+    result = export_to_xlsx([record], output=target)
+    assert result is None
+    sheet = load_workbook(target).active
+    assert _cell_value(sheet, "EOLProductID") == "WIC-1T="
+
+
+def test_xlsx_output_filelike_writes_and_does_not_close(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    stream = io.BytesIO()
+    result = export_to_xlsx([record], output=stream)
+    assert result is None
+    assert not stream.closed
+    sheet = load_workbook(io.BytesIO(stream.getvalue())).active
+    assert _cell_value(sheet, "EOLProductID") == "WIC-1T="
+
+
+def test_xlsx_non_ascii_round_trip():
+    record = EOXRecord.model_validate(
+        {
+            "EOLProductID": "WIC-1T=",
+            "ProductIDDescription": "Café — WAN Interface Card",
+        }
+    )
+    sheet = _load_sheet([record])
+    assert _cell_value(sheet, "ProductIDDescription") == "Café — WAN Interface Card"
+
+
+def test_export_to_xlsx_in_package_root():
+    assert cisco_eox_query.export_to_xlsx is export_to_xlsx
+    assert "export_to_xlsx" in cisco_eox_query.__all__
+
+
+def test_xlsx_columns_match_csv_columns():
+    assert EXPORT_COLUMNS == CSV_COLUMNS
