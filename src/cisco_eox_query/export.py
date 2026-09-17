@@ -1,4 +1,4 @@
-"""CSV export helpers for :class:`~cisco_eox_query.v5.models.EOXRecord` instances."""
+"""CSV and XLSX export helpers for :class:`~cisco_eox_query.v5.models.EOXRecord` instances."""
 
 from __future__ import annotations
 
@@ -8,11 +8,14 @@ import os
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import TextIO
+from typing import BinaryIO, TextIO
+
+from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 from cisco_eox_query.v5.models import EOXRecord
 
-CSV_COLUMNS: tuple[str, ...] = (
+EXPORT_COLUMNS: tuple[str, ...] = (
     "EOLProductID",
     "ProductIDDescription",
     "ProductBulletinNumber",
@@ -37,6 +40,8 @@ CSV_COLUMNS: tuple[str, ...] = (
     "MigrationProductInfoURL",
 )
 
+CSV_COLUMNS: tuple[str, ...] = EXPORT_COLUMNS
+
 
 def export_to_csv(
     records: Sequence[EOXRecord],
@@ -46,7 +51,7 @@ def export_to_csv(
 
     The header row is always written, even for an empty ``records`` list, so
     the output is always a valid CSV document. Columns follow the flattened
-    ``CSV_COLUMNS`` schema:
+    ``EXPORT_COLUMNS`` schema (aliased as ``CSV_COLUMNS``):
 
     - The first 15 columns map directly to ``EOXRecord`` fields; the
       ``QueryType`` column holds the normalized query type
@@ -87,37 +92,110 @@ def export_to_csv(
     return None
 
 
-def _write_csv(stream: TextIO, rows: list[list[str]]) -> None:
+def export_to_xlsx(
+    records: Sequence[EOXRecord],
+    output: str | os.PathLike[str] | BinaryIO | None = None,
+) -> bytes | None:
+    """Serialize ``records`` to an XLSX workbook and return bytes or write to ``output``.
+
+    The header row is always written, even for an empty ``records`` list, so
+    the output is always a valid workbook. Columns follow the same flattened
+    ``EXPORT_COLUMNS`` schema as :func:`export_to_csv`. No styling is
+    applied; a future highlighting pass can extend :func:`_write_xlsx_row`.
+
+    ``date`` values become real Excel date cells, ``str`` values become text
+    cells, and ``None`` becomes an empty cell. String values that start with
+    ``=``, ``+``, ``-``, or ``@`` are forced to text so they are never
+    interpreted as formulas (CSV-injection-style defense).
+
+    Args:
+        records: The records to serialize.
+        output: One of three output modes:
+
+            - ``None``: return the workbook bytes.
+            - A ``str`` or ``os.PathLike``: write the workbook to that path
+              and return ``None``.
+            - A binary file-like object (``BinaryIO``): write to it directly
+              and return ``None``. The caller's object is not closed.
+
+    Returns:
+        The workbook bytes when ``output`` is ``None``, otherwise ``None``.
+    """
+    rows = [_flatten(record) for record in records]
+    workbook = Workbook()
+    worksheet = workbook.active
+
+    if output is None:
+        buffer = io.BytesIO()
+        _write_xlsx_rows(worksheet, rows)
+        workbook.save(buffer)
+        return buffer.getvalue()
+
+    if isinstance(output, (str, os.PathLike)):
+        _write_xlsx_rows(worksheet, rows)
+        workbook.save(Path(output))
+    else:
+        _write_xlsx_rows(worksheet, rows)
+        workbook.save(output)
+    return None
+
+
+def _write_csv(stream: TextIO, rows: list[list[str | date | None]]) -> None:
     writer = csv.writer(stream, lineterminator="\n")
     writer.writerow(CSV_COLUMNS)
-    writer.writerows(rows)
+    writer.writerows([[_cell(value) for value in row] for row in rows])
 
 
-def _flatten(record: EOXRecord) -> list[str]:
+def _write_xlsx_rows(worksheet: Worksheet, rows: list[list[str | date | None]]) -> None:
+    """Write the header and every data row into ``worksheet``."""
+    _write_xlsx_row(worksheet, 1, EXPORT_COLUMNS)
+    for row_index, values in enumerate(rows, start=2):
+        _write_xlsx_row(worksheet, row_index, values)
+
+
+def _write_xlsx_row(
+    worksheet: Worksheet, row_index: int, values: Sequence[str | date | None]
+) -> None:
+    """Write one row of typed values into ``worksheet`` at ``row_index``.
+
+    ``None`` values are left unset (empty cells). ``date`` values are
+    assigned directly so openpyxl emits real Excel date cells. String values
+    that could be interpreted as formulas are forced to text via
+    :attr:`~openpyxl.cell.cell.Cell.data_type` so they round-trip verbatim.
+    """
+    for column_index, value in enumerate(values, start=1):
+        if value is None:
+            continue
+        cell = worksheet.cell(row=row_index, column=column_index, value=value)
+        if isinstance(value, str) and value[:1] in "=+-@":
+            cell.data_type = "s"
+
+
+def _flatten(record: EOXRecord) -> list[str | date | None]:
     details = record.migration_details
     return [
-        _cell(record.eol_product_id),
-        _cell(record.product_id_description),
-        _cell(record.product_bulletin_number),
-        _cell(record.link_to_product_bulletin_url),
-        _cell(record.eox_external_announcement_date),
-        _cell(record.end_of_sale_date),
-        _cell(record.end_of_sw_maintenance_releases),
-        _cell(record.end_of_security_vul_support_date),
-        _cell(record.end_of_routine_failure_analysis_date),
-        _cell(record.end_of_service_contract_renewal),
-        _cell(record.last_date_of_support),
-        _cell(record.end_of_svc_attach_date),
-        _cell(record.updated_time_stamp),
-        _cell(record.eox_input_type),
-        _cell(record.eox_input_value),
-        _cell(details.pid_active_flag if details else None),
-        _cell(details.migration_information if details else None),
-        _cell(details.migration_option if details else None),
-        _cell(details.migration_product_id if details else None),
-        _cell(details.migration_product_name if details else None),
-        _cell(details.migration_strategy if details else None),
-        _cell(details.migration_product_info_url if details else None),
+        record.eol_product_id,
+        record.product_id_description,
+        record.product_bulletin_number,
+        record.link_to_product_bulletin_url,
+        record.eox_external_announcement_date,
+        record.end_of_sale_date,
+        record.end_of_sw_maintenance_releases,
+        record.end_of_security_vul_support_date,
+        record.end_of_routine_failure_analysis_date,
+        record.end_of_service_contract_renewal,
+        record.last_date_of_support,
+        record.end_of_svc_attach_date,
+        record.updated_time_stamp,
+        record.eox_input_type,
+        record.eox_input_value,
+        details.pid_active_flag if details else None,
+        details.migration_information if details else None,
+        details.migration_option if details else None,
+        details.migration_product_id if details else None,
+        details.migration_product_name if details else None,
+        details.migration_strategy if details else None,
+        details.migration_product_info_url if details else None,
     ]
 
 
