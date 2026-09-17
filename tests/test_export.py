@@ -2,13 +2,22 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 import cisco_eox_query
 from cisco_eox_query import export_to_csv
-from cisco_eox_query.export import CSV_COLUMNS, EXPORT_COLUMNS, export_to_xlsx
+from cisco_eox_query.export import (
+    CSV_COLUMNS,
+    EXPORT_COLUMNS,
+    _date_highlight,
+    _gradient_color,
+    _highlight_lifecycle_dates,
+    _rgb_hex,
+    _write_xlsx_rows,
+    export_to_xlsx,
+)
 from cisco_eox_query.v5.models import EOXRecord
 
 
@@ -317,3 +326,160 @@ def test_export_to_xlsx_in_package_root():
 
 def test_xlsx_columns_match_csv_columns():
     assert EXPORT_COLUMNS == CSV_COLUMNS
+
+
+def _xlsx_cell(records, name, row=2):
+    sheet = _load_sheet(records)
+    return sheet.cell(row=row, column=_column_index(name) + 1)
+
+
+def test_xlsx_past_lifecycle_date_is_black_with_white_font():
+    past = (date.today() - timedelta(days=10)).isoformat()
+    record = EOXRecord.model_validate({"EOLProductID": "WIC-1T=", "EndOfSaleDate": past})
+    cell = _xlsx_cell([record], "EndOfSaleDate")
+    assert cell.fill.fill_type == "solid"
+    assert cell.fill.start_color.rgb.endswith("000000")
+    assert cell.font.color.rgb.endswith("FFFFFF")
+
+
+def test_xlsx_today_date_is_red():
+    record = EOXRecord.model_validate(
+        {"EOLProductID": "WIC-1T=", "EndOfSaleDate": date.today().isoformat()}
+    )
+    cell = _xlsx_cell([record], "EndOfSaleDate")
+    assert cell.fill.fill_type == "solid"
+    assert cell.fill.start_color.rgb.endswith("FF0000")
+
+
+def test_xlsx_far_future_date_is_green():
+    future = (date.today() + timedelta(days=400)).isoformat()
+    record = EOXRecord.model_validate({"EOLProductID": "WIC-1T=", "EndOfSaleDate": future})
+    cell = _xlsx_cell([record], "EndOfSaleDate")
+    assert cell.fill.fill_type == "solid"
+    assert cell.fill.start_color.rgb.endswith("00B050")
+
+
+def test_xlsx_gradient_midpoint_is_yellowish():
+    days = 183
+    target = (date.today() + timedelta(days=days)).isoformat()
+    record = EOXRecord.model_validate({"EOLProductID": "WIC-1T=", "EndOfSaleDate": target})
+    expected = _rgb_hex(_gradient_color(days / 365))
+    cell = _xlsx_cell([record], "EndOfSaleDate")
+    assert cell.fill.fill_type == "solid"
+    assert cell.fill.start_color.rgb.endswith(expected)
+    assert not cell.fill.start_color.rgb.endswith(("000000", "FF0000", "00B050"))
+
+
+def test_xlsx_metadata_dates_not_highlighted(eox_record_payload):
+    record = EOXRecord.model_validate(eox_record_payload)
+    sheet = _load_sheet([record])
+    for name in ("EOXExternalAnnouncementDate", "UpdatedTimeStamp"):
+        cell = sheet.cell(row=2, column=_column_index(name) + 1)
+        assert cell.fill.fill_type in (None, "none")
+    for name in ("EndOfSaleDate", "LastDateOfSupport"):
+        cell = sheet.cell(row=2, column=_column_index(name) + 1)
+        assert cell.fill.fill_type == "solid"
+        assert cell.fill.start_color.rgb.endswith("000000")
+
+
+def test_xlsx_non_date_columns_not_highlighted():
+    record = EOXRecord.model_validate(
+        {
+            "EOLProductID": "WIC-1T=",
+            "ProductIDDescription": "WAN Interface Card",
+            "EndOfSaleDate": (date.today() - timedelta(days=10)).isoformat(),
+        }
+    )
+    sheet = _load_sheet([record])
+    for name in ("EOLProductID", "ProductIDDescription"):
+        cell = sheet.cell(row=2, column=_column_index(name) + 1)
+        assert cell.fill.fill_type in (None, "none")
+
+
+def test_xlsx_none_lifecycle_date_not_highlighted():
+    record = EOXRecord.model_validate({"EOLProductID": "WIC-1T="})
+    sheet = _load_sheet([record])
+    for column in range(1, len(EXPORT_COLUMNS) + 1):
+        assert sheet.cell(row=2, column=column).fill.fill_type in (None, "none")
+
+
+def test_date_highlight_unit():
+    today = date(2026, 1, 1)
+
+    past_fill, past_font = _date_highlight(today - timedelta(days=1), today)
+    assert past_fill is not None
+    assert past_fill.fill_type == "solid"
+    assert past_fill.start_color.rgb.endswith("000000")
+    assert past_font is not None
+    assert past_font.color.rgb.endswith("FFFFFF")
+
+    today_fill, today_font = _date_highlight(today, today)
+    assert today_fill is not None
+    assert today_fill.fill_type == "solid"
+    assert today_fill.start_color.rgb.endswith("FF0000")
+    assert today_font is None
+
+    boundary_fill, _ = _date_highlight(today + timedelta(days=365), today)
+    assert boundary_fill is not None
+    assert boundary_fill.start_color.rgb.endswith("00B050")
+
+    gradient_fill, gradient_font = _date_highlight(today + timedelta(days=100), today)
+    assert gradient_fill is not None
+    assert gradient_fill.start_color.rgb.endswith("FF8C00")
+    assert gradient_font is None
+
+    beyond_fill, _ = _date_highlight(today + timedelta(days=366), today)
+    assert beyond_fill is not None
+    assert beyond_fill.start_color.rgb.endswith("00B050")
+
+
+def test_gradient_color_endpoints():
+    assert _gradient_color(0.0) == (255, 0, 0)
+    assert _gradient_color(0.5) == (255, 255, 0)
+    assert _gradient_color(1.0) == (0, 176, 80)
+    assert _gradient_color(0.25) == (255, 128, 0)
+
+
+def test_rgb_hex():
+    assert _rgb_hex((0, 176, 80)) == "00B050"
+    assert _rgb_hex((255, 255, 255)) == "FFFFFF"
+
+
+def test_highlight_lifecycle_dates_deterministic():
+    today = date(2026, 1, 1)
+
+    def row(**values):
+        cells = [None] * len(EXPORT_COLUMNS)
+        for name, value in values.items():
+            cells[EXPORT_COLUMNS.index(name)] = value
+        return cells
+
+    rows = [
+        row(EndOfSaleDate=today - timedelta(days=10)),
+        row(EndOfSaleDate=today),
+        row(EndOfSaleDate=today + timedelta(days=400)),
+    ]
+    worksheet = Workbook().active
+    _write_xlsx_rows(worksheet, rows)
+    _highlight_lifecycle_dates(worksheet, rows, today=today)
+
+    end_of_sale = _column_index("EndOfSaleDate") + 1
+    past_cell = worksheet.cell(row=2, column=end_of_sale)
+    assert past_cell.fill.fill_type == "solid"
+    assert past_cell.fill.start_color.rgb.endswith("000000")
+    assert past_cell.font.color.rgb.endswith("FFFFFF")
+
+    today_cell = worksheet.cell(row=3, column=end_of_sale)
+    assert today_cell.fill.fill_type == "solid"
+    assert today_cell.fill.start_color.rgb.endswith("FF0000")
+
+    future_cell = worksheet.cell(row=4, column=end_of_sale)
+    assert future_cell.fill.fill_type == "solid"
+    assert future_cell.fill.start_color.rgb.endswith("00B050")
+
+
+def test_xlsx_highlighting_does_not_break_csv():
+    past = (date.today() - timedelta(days=10)).isoformat()
+    record = EOXRecord.model_validate({"EOLProductID": "WIC-1T=", "EndOfSaleDate": past})
+    row = _rows(export_to_csv([record]))[1]
+    assert row[_column_index("EndOfSaleDate")] == past
