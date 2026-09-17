@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import date
 
 import pytest
+from openpyxl import load_workbook
 
 from cisco_eox_query import RateLimitError, cli
 from cisco_eox_query.v5.models import EOXResponse
@@ -317,10 +319,10 @@ def test_main_export_csv_output_file(monkeypatch, capsys, eox_response_payload, 
     assert "EOLProductID" not in capsys.readouterr().out
 
 
-def test_main_output_file_requires_export_csv(monkeypatch, caplog, tmp_path):
+def test_main_output_file_requires_export_updated_message(monkeypatch, caplog, tmp_path):
     target = tmp_path / "out.csv"
     assert cli.main(["--access-token", "t", "--output-file", str(target), "pid", "WIC-1T="]) == 1
-    assert "--output-file requires --export csv" in caplog.text
+    assert "--output-file requires --export csv or --export xlsx" in caplog.text
 
 
 def test_main_export_invalid_choice_raises_system_exit(capsys):
@@ -343,3 +345,78 @@ def test_main_export_csv_empty_results_prints_header(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.startswith("EOLProductID")
     assert "WIC-1T=" not in out
+
+
+def test_main_export_xlsx_output_file(monkeypatch, capsys, eox_response_payload, tmp_path):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(eox_response_payload))
+    target = tmp_path / "out.xlsx"
+    assert (
+        cli.main(
+            [
+                "--access-token",
+                "t",
+                "--export",
+                "xlsx",
+                "--output-file",
+                str(target),
+                "pid",
+                "WIC-1T=",
+            ]
+        )
+        == 0
+    )
+    assert target.exists()
+    worksheet = load_workbook(target).active
+    assert worksheet.cell(row=1, column=1).value == "EOLProductID"
+    assert any(cell.value == "WIC-1T=" for row in worksheet.iter_rows() for cell in row)
+    assert capsys.readouterr().out == ""
+
+
+def test_main_export_xlsx_requires_output_file(monkeypatch, caplog):
+    assert cli.main(["--access-token", "t", "--export", "xlsx", "pid", "WIC-1T="]) == 1
+    assert "--export xlsx requires --output-file" in caplog.text
+
+
+def test_main_export_xlsx_empty_results_writes_header_only(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient({"EOXRecord": []}))
+    target = tmp_path / "out.xlsx"
+    assert (
+        cli.main(
+            [
+                "--access-token",
+                "t",
+                "--export",
+                "xlsx",
+                "--output-file",
+                str(target),
+                "pid",
+                "WIC-1T=",
+            ]
+        )
+        == 0
+    )
+    worksheet = load_workbook(target).active
+    assert worksheet.max_row == 1
+    assert worksheet.cell(row=1, column=1).value == "EOLProductID"
+
+
+def test_main_export_xlsx_date_cell_is_date(monkeypatch, eox_response_payload, tmp_path):
+    monkeypatch.setattr(cli, "EOXClient", lambda **kwargs: _StubClient(eox_response_payload))
+    target = tmp_path / "out.xlsx"
+    assert (
+        cli.main(
+            [
+                "--access-token",
+                "t",
+                "--export",
+                "xlsx",
+                "--output-file",
+                str(target),
+                "pid",
+                "WIC-1T=",
+            ]
+        )
+        == 0
+    )
+    worksheet = load_workbook(target).active
+    assert worksheet.cell(row=2, column=6).value.date() == date(2009, 12, 28)
