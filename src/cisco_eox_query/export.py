@@ -12,6 +12,7 @@ from typing import BinaryIO, TextIO
 
 from openpyxl import Workbook
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 
 from cisco_eox_query.v5.models import EOXRecord
@@ -46,6 +47,28 @@ EXCEL_ERROR_CODES: frozenset[str] = frozenset(
 )
 
 CSV_COLUMNS: tuple[str, ...] = EXPORT_COLUMNS
+
+LIFECYCLE_DATE_COLUMNS: frozenset[str] = frozenset(
+    (
+        "EndOfSaleDate",
+        "EndOfSWMaintenanceReleases",
+        "EndOfSecurityVulSupportDate",
+        "EndOfRoutineFailureAnalysisDate",
+        "EndOfServiceContractRenewal",
+        "LastDateOfSupport",
+        "EndOfSvcAttachDate",
+    )
+)
+
+_LIFECYCLE_DATE_INDICES: tuple[int, ...] = tuple(
+    index + 1 for index, name in enumerate(EXPORT_COLUMNS) if name in LIFECYCLE_DATE_COLUMNS
+)
+
+_BLACK_FILL = PatternFill(fill_type="solid", fgColor="000000")
+_WHITE_FONT = Font(color="FFFFFF")
+_RED_FILL = PatternFill(fill_type="solid", fgColor="FF0000")
+_GREEN_FILL = PatternFill(fill_type="solid", fgColor="00B050")
+_YEAR = 365
 
 
 def export_to_csv(
@@ -105,8 +128,15 @@ def export_to_xlsx(
 
     The header row is always written, even for an empty ``records`` list, so
     the output is always a valid workbook. Columns follow the same flattened
-    ``EXPORT_COLUMNS`` schema as :func:`export_to_csv`. No styling is
-    applied; a future highlighting pass can extend :func:`_write_xlsx_row`.
+    ``EXPORT_COLUMNS`` schema as :func:`export_to_csv`.
+
+    Lifecycle date columns (the seven ``EndOf*``/``LastDateOfSupport``/
+    ``EndOfSvcAttachDate`` columns) are highlighted relative to the current
+    date: past dates get a solid black fill with white font, today gets a
+    solid red fill, dates 365+ days out get a solid green fill, and dates in
+    between get a red-yellow-green gradient fill. The metadata date columns
+    (``EOXExternalAnnouncementDate``, ``UpdatedTimeStamp``) and all non-date
+    columns are never highlighted.
 
     ``date`` values become real Excel date cells, ``str`` values become text
     cells, and ``None`` becomes an empty cell. String values that start with
@@ -132,15 +162,15 @@ def export_to_xlsx(
 
     if output is None:
         buffer = io.BytesIO()
-        _write_xlsx_rows(worksheet, rows)
+        _populate_worksheet(worksheet, rows)
         workbook.save(buffer)
         return buffer.getvalue()
 
     if isinstance(output, (str, os.PathLike)):
-        _write_xlsx_rows(worksheet, rows)
+        _populate_worksheet(worksheet, rows)
         workbook.save(Path(output))
     else:
-        _write_xlsx_rows(worksheet, rows)
+        _populate_worksheet(worksheet, rows)
         workbook.save(output)
     return None
 
@@ -156,6 +186,12 @@ def _write_xlsx_rows(worksheet: Worksheet, rows: list[list[str | date | None]]) 
     _write_xlsx_row(worksheet, 1, EXPORT_COLUMNS)
     for row_index, values in enumerate(rows, start=2):
         _write_xlsx_row(worksheet, row_index, values)
+
+
+def _populate_worksheet(worksheet: Worksheet, rows: list[list[str | date | None]]) -> None:
+    """Write all rows into ``worksheet`` and highlight lifecycle date cells."""
+    _write_xlsx_rows(worksheet, rows)
+    _highlight_lifecycle_dates(worksheet, rows)
 
 
 def _write_xlsx_row(
@@ -181,6 +217,71 @@ def _write_xlsx_row(
             (value and value[0] in "=+-@") or value in EXCEL_ERROR_CODES
         ):
             cell.data_type = "s"
+
+
+def _highlight_lifecycle_dates(
+    worksheet: Worksheet, rows: list[list[str | date | None]], today: date | None = None
+) -> None:
+    """Apply lifecycle-date highlighting to the data rows of ``worksheet``.
+
+    Only the lifecycle date columns in ``_LIFECYCLE_DATE_INDICES`` are styled;
+    metadata date columns and non-date columns are left untouched. ``today``
+    defaults to :func:`datetime.date.today` and exists so tests can pass a
+    deterministic reference date.
+    """
+    reference = today if today is not None else date.today()
+    for row_index, values in enumerate(rows, start=2):
+        for column_index in _LIFECYCLE_DATE_INDICES:
+            value = values[column_index - 1]
+            if not isinstance(value, date):
+                continue
+            fill, font = _date_highlight(value, reference)
+            cell = worksheet.cell(row=row_index, column=column_index)
+            if fill is not None:
+                cell.fill = fill
+            if font is not None:
+                cell.font = font
+
+
+def _date_highlight(value: date, today: date) -> tuple[PatternFill | None, Font | None]:
+    """Return the ``(fill, font)`` pair that highlights ``value`` vs ``today``.
+
+    - ``value < today``: solid black fill, white font.
+    - ``value == today``: solid red fill, default font.
+    - ``value >= today + 365``: solid green fill, default font.
+    - ``0 < days < 365``: red-yellow-green gradient fill, default font.
+    """
+    delta = (value - today).days
+    if delta < 0:
+        return _BLACK_FILL, _WHITE_FONT
+    if delta == 0:
+        return _RED_FILL, None
+    if delta >= _YEAR:
+        return _GREEN_FILL, None
+    return PatternFill(fill_type="solid", fgColor=_rgb_hex(_gradient_color(delta / _YEAR))), None
+
+
+def _gradient_color(t: float) -> tuple[int, int, int]:
+    """Interpolate the red-yellow-green gradient at ``t`` in ``[0, 1)``.
+
+    For ``t < 0.5`` interpolate red ``(255, 0, 0)`` to yellow
+    ``(255, 255, 0)``; for ``t >= 0.5`` interpolate yellow to green
+    ``(0, 176, 80)``.
+    """
+    if t < 0.5:
+        scale = t / 0.5
+        return (255, round(255 * scale), 0)
+    scale = (t - 0.5) / 0.5
+    return (
+        round(255 * (1 - scale)),
+        round(255 - (255 - 176) * scale),
+        round(80 * scale),
+    )
+
+
+def _rgb_hex(rgb: tuple[int, int, int]) -> str:
+    """Format an ``(r, g, b)`` tuple as a ``RRGGBB`` hex string."""
+    return f"{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
 
 
 def _flatten(record: EOXRecord) -> list[str | date | None]:
